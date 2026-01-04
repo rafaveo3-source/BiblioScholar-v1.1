@@ -242,7 +242,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             const [isReg, setIsReg] = useState(false);
             const [user, setUser] = useState('');
             const [pass, setPass] = useState('');
+            const [showPass, setShowPass] = useState(false);
             const [err, setErr] = useState('');
+
             const submit = (e) => {
                 e.preventDefault();
                 if (!user || !pass) return setErr("Preencha tudo.");
@@ -254,11 +256,33 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                     <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-xl border border-stone-100 fade-in my-auto">
                         <div className="text-center mb-6">
                             <div className="w-12 h-12 bg-amber-900 text-white rounded-xl flex items-center justify-center mx-auto mb-2"><Icon name="feather"/></div>
-                            <h1 className="text-2xl font-serif font-bold text-stone-900">BiblioScholar</h1>
+                            <h1 className="text-xl font-serif font-bold text-stone-900">BiblioScholar</h1>
                         </div>
                         <form onSubmit={submit} className="space-y-4">
-                            <input value={user} onChange={e=>setUser(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-amber-800 outline-none" placeholder="Usuário" />
-                            <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-amber-800 outline-none" placeholder="Senha" />
+                            <div>
+                                <input 
+                                    value={user} 
+                                    onChange={e=>setUser(e.target.value)} 
+                                    className="w-full p-3 bg-white text-stone-900 border border-stone-200 rounded-lg focus:ring-2 focus:ring-amber-800 outline-none placeholder-stone-400 transition-colors" 
+                                    placeholder="Usuário" 
+                                />
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type={showPass ? "text" : "password"} 
+                                    value={pass} 
+                                    onChange={e=>setPass(e.target.value)} 
+                                    className="w-full p-3 bg-white text-stone-900 border border-stone-200 rounded-lg focus:ring-2 focus:ring-amber-800 outline-none placeholder-stone-400 pr-10 transition-colors" 
+                                    placeholder="Senha" 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowPass(!showPass)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                                >
+                                    <Icon name={showPass ? "eye-off" : "eye"} size={18} />
+                                </button>
+                            </div>
                             {err && <p className="text-red-500 text-xs">{err}</p>}
                             <Button className="w-full">{isReg ? 'Criar Conta' : 'Entrar'}</Button>
                         </form>
@@ -279,14 +303,14 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             return (
                 <div className="h-full flex items-center justify-center p-6 bg-stone-50 overflow-y-auto custom-scroll">
                     <div className="max-w-md w-full fade-in">
-                        <h2 className="text-2xl font-serif font-bold mb-6 text-stone-900">{qs[step].q}</h2>
+                        <h2 className="text-xl font-serif font-bold mb-6 text-stone-900">{qs[step].q}</h2>
                         <div className="space-y-3">
                             {qs[step].o.map(opt => (
                                 <button key={opt} onClick={() => {
                                     const n = { ...ans, [qs[step].k]: opt };
                                     setAns(n);
                                     if (step < 2) setStep(step + 1); else onComplete(n);
-                                }} className="w-full p-4 bg-white border border-stone-200 rounded-xl text-left hover:border-amber-500 shadow-sm">{opt}</button>
+                                }} className="w-full p-4 bg-white border border-stone-200 rounded-xl text-left hover:border-amber-500 shadow-sm transition-colors text-stone-800">{opt}</button>
                             ))}
                         </div>
                     </div>
@@ -296,23 +320,22 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
 
         // --- VIEWS ---
 
-        // FIX: HomeView now uses h-full and custom-scroll on the parent div to enable scrolling within the flex layout
         const HomeView = ({ user, onNavigate }) => {
             const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
             return (
                 <div className="h-full overflow-y-auto p-6 md:p-12 pb-32 custom-scroll">
                     <div className="max-w-4xl mx-auto fade-in">
-                        <h1 className="text-3xl font-serif font-bold text-stone-900 mb-2">Olá, {user.username}.</h1>
+                        <h1 className="text-xl md:text-3xl font-serif font-bold text-stone-900 mb-2">Olá, {user.username}.</h1>
                         <p className="text-stone-600 mb-8">Seu perfil: <strong>{user.profile.level}</strong>.</p>
 
                         <div onClick={() => onNavigate('chat')} className="bg-amber-900 text-white p-8 rounded-2xl shadow-lg mb-8 cursor-pointer hover:shadow-xl transition-all relative overflow-hidden group transform hover:-translate-y-1">
                             <div className="relative z-10">
-                                <h3 className="text-2xl font-serif font-bold mb-2">Iniciar Novo Estudo</h3>
+                                <h3 className="text-xl font-serif font-bold mb-2">Iniciar Novo Estudo</h3>
                                 <p className="text-amber-100">Faça uma pergunta teológica para a IA.</p>
                             </div>
                         </div>
 
-                        <h3 className="font-serif font-bold text-stone-900 mb-4">Trilhas Sugeridas</h3>
+                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg">Trilhas Sugeridas</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             <div onClick={() => onNavigate('chat', "Faça uma exegese detalhada dos Salmos, focando em poesia e teologia.")} className="bg-white p-6 rounded-xl border border-stone-200 hover:border-amber-500 transition-colors cursor-pointer shadow-sm">
                                 <div className="flex items-center gap-3 mb-3">
@@ -330,7 +353,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             </div>
                         </div>
 
-                        <h3 className="font-serif font-bold text-stone-900 mb-4">Leitura Diária ({today})</h3>
+                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg">Leitura Diária ({today})</h3>
                         <div className="bg-stone-100 p-6 rounded-xl border border-stone-200 hover:border-amber-500 cursor-pointer transition-all flex items-center justify-between group" onClick={() => onNavigate('daily')}>
                             <div>
                                 <h4 className="font-bold text-stone-800 mb-1">Devocional do Dia</h4>
@@ -348,7 +371,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
         const HistoryView = ({ sessions, onSelectSession, onDeleteSession }) => (
             <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                 <div className="max-w-2xl mx-auto fade-in">
-                    <h2 className="text-2xl font-serif font-bold text-stone-900 mb-6">Seus Estudos</h2>
+                    <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Seus Estudos</h2>
                     <div className="space-y-3">
                         {sessions.length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhum estudo encontrado.</p> : 
                             sessions.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(session => (
@@ -445,7 +468,8 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         <input type="number" className="w-20 p-3 bg-stone-50 border border-stone-200 rounded-lg text-center text-base" value={chapter} onChange={e=>loadChapter(bookId, e.target.value)}/>
                         <button onClick={()=>loadChapter(bookId, parseInt(chapter)+1)} className="p-3 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"><Icon name="arrow-right"/></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#fafaf9] font-serif text-lg leading-relaxed pb-32 custom-scroll text-stone-800">
+                    {/* FIXED: Reduced font size for mobile, kept larger for desktop */}
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#fafaf9] font-serif text-base md:text-lg leading-relaxed pb-32 custom-scroll text-stone-800">
                         {loading ? <div className="text-center text-stone-400 mt-20 italic">Carregando escrituras...</div> : text.map(v => (
                             <span key={v.verse} onClick={()=>setSelVerse(v)} className={`cursor-pointer hover:bg-amber-100 rounded px-1 transition-colors inline-block ${selVerse?.verse===v.verse?'bg-amber-200':''} ${hasNote(v.verse)?'has-note':''}`}>
                                 <sup className="text-xs text-stone-400 font-sans mr-1 select-none font-bold">{v.verse}</sup>{v.text} 
@@ -453,14 +477,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         ))}
                     </div>
                     {selVerse && (
-                        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-md p-6 rounded-t-2xl md:rounded-2xl shadow-2xl animate-slide-up border-t-4 border-amber-800">
+                        /* FIXED: Changed items-end to items-center to center the modal */
+                        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-2xl animate-slide-up border-t-4 border-amber-800">
                                 <div className="flex justify-between mb-4">
                                     <h3 className="font-bold text-stone-900 text-lg font-serif">{bookName} {chapter}:{selVerse.verse}</h3>
                                     <button onClick={()=>setSelVerse(null)}><Icon name="x"/></button>
                                 </div>
                                 <p className="italic text-stone-600 text-sm mb-4 border-l-4 border-amber-500 pl-3 py-1 bg-stone-50 rounded-r">"{selVerse.text}"</p>
-                                <textarea className="w-full p-4 border border-stone-200 rounded-lg mb-4 text-base focus:ring-2 focus:ring-amber-500 outline-none" rows="3" placeholder="Sua anotação pessoal..." value={note} onChange={e=>setNote(e.target.value)}/>
+                                <textarea className="w-full p-4 border border-stone-200 bg-white text-stone-900 rounded-lg mb-4 text-base focus:ring-2 focus:ring-amber-500 outline-none placeholder-stone-400" rows="3" placeholder="Sua anotação pessoal..." value={note} onChange={e=>setNote(e.target.value)}/>
                                 <div className="flex gap-2">
                                     <Button onClick={saveNote} className="flex-1 py-3"><Icon name="save" size={18}/> Salvar</Button>
                                     <Button onClick={()=>{
@@ -491,7 +516,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             return (
                 <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                     <div className="max-w-2xl mx-auto fade-in">
-                        <h2 className="text-2xl font-serif font-bold text-stone-900 mb-6">Caderno de Anotações</h2>
+                        <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Caderno de Anotações</h2>
                         {notes.length === 0 ? <p className="text-stone-400 italic text-center py-12">Nenhuma anotação. Leia a Bíblia para criar.</p> : 
                             <div className="space-y-4">
                                 {notes.map(n => (
@@ -519,7 +544,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
         const SettingsView = ({ user }) => (
             <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                 <div className="max-w-2xl mx-auto fade-in">
-                    <h2 className="text-2xl font-serif font-bold text-stone-900 mb-6">Ajustes</h2>
+                    <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Ajustes</h2>
                     <div className="bg-white p-6 rounded-xl border border-stone-200 mb-6 shadow-sm">
                         <h3 className="font-bold mb-2 text-stone-800">Backup de Dados</h3>
                         <p className="text-sm text-stone-500 mb-4">Salve seus estudos e notas para usar em outro dispositivo.</p>
@@ -533,7 +558,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                     </div>
                     <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
                         <h3 className="font-bold mb-2 text-stone-800">Groq API Key</h3>
-                        <input type="password" value={localStorage.getItem('gemini_api_key')||''} disabled className="w-full p-3 bg-stone-50 rounded-lg mb-3 text-stone-400 font-mono text-sm"/>
+                        <input type="password" value={localStorage.getItem('gemini_api_key')||''} disabled className="w-full p-3 bg-stone-50 border border-stone-200 text-stone-600 rounded-lg mb-3 font-mono text-sm"/>
                         <button onClick={()=>{localStorage.removeItem('gemini_api_key'); window.location.reload();}} className="text-red-500 text-sm hover:underline font-medium p-2">Remover Chave e Sair</button>
                     </div>
                 </div>
@@ -686,11 +711,12 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                     </div>
                     <div className="p-4 bg-white/80 backdrop-blur-md border-t border-stone-200 md:mb-0 mb-16 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
                         <div className="max-w-3xl mx-auto flex gap-2 items-end">
-                            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} className="flex-1 p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-900/10 focus:border-amber-800 outline-none transition-all shadow-inner" placeholder="Digite sua pergunta teológica..."/>
+                            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} className="flex-1 p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-900/10 focus:border-amber-800 outline-none transition-all shadow-inner text-stone-800 placeholder-stone-400" placeholder="Digite sua pergunta teológica..."/>
                             {streaming ? (
                                 <Button onClick={stopGeneration} variant="danger" title="Parar" className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg"><Icon name="square" size={20} fill="currentColor" /></Button>
                             ) : (
-                                <Button onClick={()=>send()} disabled={!input.trim()} className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg bg-stone-900 hover:bg-amber-900"><Icon name="send" size={20}/></Button>
+                                /* FIXED: Changed bg-stone-900 to bg-amber-900 to remove black background */
+                                <Button onClick={()=>send()} disabled={!input.trim()} className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg bg-amber-900 hover:bg-amber-800"><Icon name="send" size={20}/></Button>
                             )}
                         </div>
                     </div>
@@ -791,9 +817,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 <div className="fixed inset-0 bg-stone-900/90 flex items-center justify-center p-6 backdrop-blur-sm">
                     <div className="bg-white p-8 rounded-2xl w-full max-w-sm text-center shadow-2xl border-t-4 border-amber-800 animate-fade-in">
                         <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-800"><Icon name="key" /></div>
-                        <h2 className="font-serif font-bold text-2xl mb-2 text-stone-900">Chave de Acesso (Groq)</h2>
+                        <h2 className="font-serif font-bold text-xl mb-2 text-stone-900">Chave de Acesso (Groq)</h2>
                         <p className="text-sm text-stone-500 mb-6 leading-relaxed">Para conectar a IA (Llama 3), cole sua chave da Groq abaixo.</p>
-                        <input className="w-full p-4 border border-stone-200 rounded-xl mb-4 focus:ring-2 focus:ring-amber-800 outline-none transition-all font-mono text-sm bg-stone-50" type="password" placeholder="Cole aqui (gsk_...)" onChange={e => setTempKey(e.target.value)} />
+                        <input className="w-full p-4 border border-stone-200 bg-white text-stone-900 rounded-xl mb-4 focus:ring-2 focus:ring-amber-800 outline-none transition-all font-mono text-sm placeholder-stone-400" type="password" placeholder="Cole aqui (gsk_...)" onChange={e => setTempKey(e.target.value)} />
                         <Button className="w-full py-4 text-lg shadow-xl" onClick={handleSaveKey}>Conectar</Button>
                         <a href="https://console.groq.com/keys" target="_blank" className="text-xs text-amber-800 mt-6 block hover:underline font-medium">Obter chave grátis (Groq)</a>
                     </div>
@@ -826,7 +852,8 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 {id:'notes', l:'Anotações', i:'notebook-pen'},
                                 {id:'settings', l:'Ajustes', i:'settings'}
                             ].map(i => (
-                                <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`w-full flex gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${tab===i.id?'bg-stone-900 text-white shadow-md':'text-stone-600 hover:bg-stone-50 hover:text-stone-900'}`}>
+                                /* FIXED: Changed bg-stone-900 to bg-amber-100 text-amber-900 for active state */
+                                <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`w-full flex gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${tab===i.id?'bg-amber-100 text-amber-900 shadow-md':'text-stone-600 hover:bg-stone-50 hover:text-stone-900'}`}>
                                     <Icon name={i.i} size={18}/> {i.l}
                                 </button>
                             ))}
@@ -872,8 +899,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             {id:'notes', i:'notebook-pen', l:'Notas'},
                             {id:'settings', i:'settings', l:'Ajustes'}
                         ].map(i => (
-                            <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`flex flex-col items-center p-2 rounded-xl transition-all ${tab===i.id?'text-amber-900 bg-amber-50':'text-stone-400 active:scale-95'}`}>
-                                <Icon name={i.i} size={22}/>
+                            /* FIXED: Reduced icon size to 20 and padding to p-1 for native mobile look */
+                            <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`flex flex-col items-center p-1 rounded-xl transition-all ${tab===i.id?'text-amber-900 bg-amber-50':'text-stone-400 active:scale-95'}`}>
+                                <Icon name={i.i} size={20}/>
                                 <span className="text-[10px] mt-1 font-medium">{i.l}</span>
                             </button>
                         ))}
