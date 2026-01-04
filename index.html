@@ -13,7 +13,7 @@
     
     <title>BiblioScholar App</title>
 
-    <!-- Favicon & Icons -->
+    <!-- Favicon & Icons (Feather) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2378350f%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23fafaf9%22 rx=%224%22/><path d=%22M20.24 12.24a6 1.21 0 0 0-3.58-6 9.19 9.19 0 0 0-8.8 8.8C7.84 15.06 5.3 18 3 21c2.8-1 6.36-2.46 9.42-2.14a24.18 24.18 0 0 0 5.68-4.78 4 4 0 0 0 .5-1.54 2.22 2.22 0 0 1 1.64-.3z%22/><line x1=%227.86%22 y1=%2215.04%22 x2=%2213.5%22 y2=%229.4%22/></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2378350f%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23fafaf9%22 rx=%224%22/><path d=%22M20.24 12.24a6 1.21 0 0 0-3.58-6 9.19 9.19 0 0 0-8.8 8.8C7.84 15.06 5.3 18 3 21c2.8-1 6.36-2.46 9.42-2.14a24.18 24.18 0 0 0 5.68-4.78 4 4 0 0 0 .5-1.54 2.22 2.22 0 0 1 1.64-.3z%22/><line x1=%227.86%22 y1=%2215.04%22 x2=%2213.5%22 y2=%229.4%22/></svg>">
 
@@ -77,8 +77,8 @@
         .font-serif { font-family: 'Playfair Display', serif; }
         
         /* Markdown */
-        .markdown-body h1, .markdown-body h2 { color: #78350f; margin-top: 1em; font-family: 'Playfair Display', serif; font-weight: 700; }
-        .markdown-body p { margin-bottom: 0.8em; line-height: 1.6; }
+        .markdown-body h1, .markdown-body h2 { color: #78350f; margin-top: 1em; font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.2rem; }
+        .markdown-body p { margin-bottom: 0.8em; line-height: 1.6; font-size: 0.95rem; }
         .markdown-body strong { color: #78350f; }
         .markdown-body blockquote { border-left: 3px solid #d6d3d1; padding-left: 1em; font-style: italic; color: #57534e; background: #f5f5f4; padding: 0.5em; }
         .markdown-body a { color: #b45309; text-decoration: underline; font-weight: bold; }
@@ -280,6 +280,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 localStorage.setItem(`bs_progress_${username}`, JSON.stringify(stats));
                 return stats;
             },
+            
+            // --- Read History Log ---
+            getReadLog: (username) => JSON.parse(localStorage.getItem(`bs_read_log_${username}`) || '{}'), // Format: { "GEN_1": true, ... }
+            markRead: (username, bookId, chapter) => {
+                const log = DataManager.getReadLog(username);
+                log[`${bookId}_${chapter}`] = true;
+                localStorage.setItem(`bs_read_log_${username}`, JSON.stringify(log));
+                return log;
+            },
 
             exportData: () => {
                 const data = { ...localStorage };
@@ -407,7 +416,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                     <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-xl border border-stone-100 fade-in my-auto">
                         <div className="text-center mb-6">
                             <div className="w-12 h-12 bg-amber-900 text-white rounded-xl flex items-center justify-center mx-auto mb-2"><Icon name="feather"/></div>
-                            <h1 className="text-xl font-serif font-bold text-stone-900">BiblioScholar</h1>
+                            <h1 className="text-lg font-serif font-bold text-stone-900">BiblioScholar</h1>
                         </div>
                         <form onSubmit={submit} className="space-y-4">
                             <div>
@@ -461,7 +470,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             return (
                 <div className="h-full flex items-center justify-center p-6 bg-stone-50 overflow-y-auto custom-scroll">
                     <div className="max-w-md w-full fade-in">
-                        <h2 className="text-xl font-serif font-bold mb-6 text-stone-900">{qs[step].q}</h2>
+                        <h2 className="text-lg font-serif font-bold mb-6 text-stone-900">{qs[step].q}</h2>
                         <div className="space-y-3">
                             {qs[step].o.map(opt => (
                                 <button key={opt} onClick={() => {
@@ -501,15 +510,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             const percentage = Math.min((progress.current / progress.goal) * 100, 100);
 
             return (
-                <div className="h-full overflow-y-auto p-6 md:p-12 pb-32 custom-scroll">
+                <div className="h-full overflow-y-auto p-4 md:p-12 pb-32 custom-scroll">
                     <div className="max-w-4xl mx-auto fade-in">
-                        <h1 className="text-xl md:text-3xl font-serif font-bold text-stone-900 mb-2">Olá, {user.username}.</h1>
-                        <p className="text-stone-600 mb-6">Seu perfil: <strong>{user.profile.level}</strong>.</p>
+                        <h1 className="text-lg md:text-2xl font-serif font-bold text-stone-900 mb-1">Olá, {user.username}.</h1>
+                        <p className="text-sm text-stone-500 mb-6">Seu perfil: <strong>{user.profile.level}</strong>.</p>
 
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 mb-8 relative overflow-hidden">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 mb-6 relative overflow-hidden">
                             <div className="flex justify-between items-end mb-2 relative z-10">
                                 <div>
-                                    <h3 className="text-stone-500 text-xs font-bold uppercase tracking-wider mb-1">Meta Diária de Leitura</h3>
+                                    <h3 className="text-stone-500 text-[10px] font-bold uppercase tracking-wider mb-1">Meta Diária de Leitura</h3>
                                     {editingGoal ? (
                                         <div className="flex items-center gap-2">
                                             <input 
@@ -525,54 +534,54 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                         </div>
                                     ) : (
                                         <div className="flex items-baseline gap-2 cursor-pointer group" onClick={() => setEditingGoal(true)} title="Clique para alterar meta">
-                                            <span className="text-3xl font-serif font-bold text-amber-900">{progress.current}</span>
-                                            <span className="text-stone-400 font-serif">/ {progress.goal} capítulos</span>
+                                            <span className="text-2xl font-serif font-bold text-amber-900">{progress.current}</span>
+                                            <span className="text-stone-400 font-serif text-sm">/ {progress.goal} capítulos</span>
                                             <Icon name="edit-2" size={14} className="text-stone-300 group-hover:text-amber-500 transition-colors ml-2"/>
                                         </div>
                                     )}
                                 </div>
                                 <div className="text-right">
-                                    <Icon name={percentage >= 100 ? "trophy" : "target"} size={32} className={percentage >= 100 ? "text-amber-500" : "text-stone-200"} />
+                                    <Icon name={percentage >= 100 ? "trophy" : "target"} size={28} className={percentage >= 100 ? "text-amber-500" : "text-stone-200"} />
                                 </div>
                             </div>
-                            <div className="w-full bg-stone-100 rounded-full h-2 relative z-10">
-                                <div className="bg-amber-900 h-2 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+                            <div className="w-full bg-stone-100 rounded-full h-1.5 relative z-10">
+                                <div className="bg-amber-900 h-1.5 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
                             </div>
                             <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-amber-50 rounded-full opacity-50 z-0"></div>
                         </div>
 
-                        <div onClick={() => onNavigate('chat')} className="bg-amber-900 text-white p-8 rounded-2xl shadow-lg mb-8 cursor-pointer hover:shadow-xl transition-all relative overflow-hidden group transform hover:-translate-y-1">
+                        <div onClick={() => onNavigate('chat')} className="bg-amber-900 text-white p-6 rounded-2xl shadow-lg mb-6 cursor-pointer hover:shadow-xl transition-all relative overflow-hidden group transform hover:-translate-y-1">
                             <div className="relative z-10">
-                                <h3 className="text-xl font-serif font-bold mb-2">Iniciar Novo Estudo</h3>
-                                <p className="text-amber-100">Faça uma pergunta teológica para a IA.</p>
+                                <h3 className="text-lg font-serif font-bold mb-1">Iniciar Novo Estudo</h3>
+                                <p className="text-amber-100 text-sm">Faça uma pergunta teológica para a IA.</p>
                             </div>
                         </div>
 
-                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg flex items-center gap-2">
-                            <Icon name="sparkles" size={18} className="text-amber-600"/> Descubra Novos Estudos
+                        <h3 className="font-serif font-bold text-stone-900 mb-3 text-base flex items-center gap-2">
+                            <Icon name="sparkles" size={16} className="text-amber-600"/> Descubra Novos Estudos
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                             {SUGGESTED_STUDIES.map(study => (
-                                <div key={study.id} onClick={() => onNavigate('chat', study.prompt, study.title)} className="bg-white p-5 rounded-xl border border-stone-200 hover:border-amber-500 transition-all cursor-pointer shadow-sm hover:shadow-md group">
+                                <div key={study.id} onClick={() => onNavigate('chat', study.prompt, study.title)} className="bg-white p-4 rounded-xl border border-stone-200 hover:border-amber-500 transition-all cursor-pointer shadow-sm hover:shadow-md group">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="p-2 bg-stone-50 text-stone-600 rounded-lg group-hover:bg-amber-50 group-hover:text-amber-900 transition-colors">
-                                            <Icon name={study.icon} size={20} />
+                                            <Icon name={study.icon} size={18} />
                                         </div>
-                                        <h4 className="font-bold text-stone-800 text-base">{study.title}</h4>
+                                        <h4 className="font-bold text-stone-800 text-sm">{study.title}</h4>
                                     </div>
-                                    <p className="text-xs text-stone-500 leading-relaxed line-clamp-2">{study.prompt}</p>
+                                    <p className="text-[11px] text-stone-500 leading-relaxed line-clamp-2">{study.prompt}</p>
                                 </div>
                             ))}
                         </div>
 
-                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg">Leitura Diária ({today})</h3>
-                        <div className="bg-stone-100 p-6 rounded-xl border border-stone-200 hover:border-amber-500 cursor-pointer transition-all flex items-center justify-between group" onClick={() => onNavigate('daily')}>
+                        <h3 className="font-serif font-bold text-stone-900 mb-3 text-base">Leitura Diária ({today})</h3>
+                        <div className="bg-stone-100 p-4 rounded-xl border border-stone-200 hover:border-amber-500 cursor-pointer transition-all flex items-center justify-between group" onClick={() => onNavigate('daily')}>
                             <div>
-                                <h4 className="font-bold text-stone-800 mb-1">Devocional do Dia</h4>
-                                <p className="text-sm text-stone-500">Descubra a leitura recomendada para hoje.</p>
+                                <h4 className="font-bold text-stone-800 mb-1 text-sm">Devocional do Dia</h4>
+                                <p className="text-xs text-stone-500">Descubra a leitura recomendada para hoje.</p>
                             </div>
-                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-amber-900 shadow-sm group-hover:scale-110 transition-transform">
-                                <Icon name="sun" size={20} />
+                            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-amber-900 shadow-sm group-hover:scale-110 transition-transform">
+                                <Icon name="sun" size={16} />
                             </div>
                         </div>
                     </div>
@@ -622,13 +631,13 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             }, [userNotes]);
 
             return (
-                <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
+                <div className="h-full overflow-y-auto p-4 md:p-6 pb-32 custom-scroll">
                     <div className="max-w-2xl mx-auto fade-in">
-                        <h2 className="text-xl font-serif font-bold text-stone-900 mb-4">Seus Estudos</h2>
+                        <h2 className="text-lg font-serif font-bold text-stone-900 mb-4">Seus Estudos</h2>
                         
-                        <div className="flex p-1 bg-stone-100 rounded-xl mb-6">
-                             <button onClick={()=>setViewMode('sessions')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${viewMode==='sessions'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Sessões de Chat</button>
-                             <button onClick={()=>setViewMode('notesByTopic')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${viewMode==='notesByTopic'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Por Tópico</button>
+                        <div className="flex p-1 bg-stone-100 rounded-xl mb-4">
+                             <button onClick={()=>setViewMode('sessions')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${viewMode==='sessions'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Sessões de Chat</button>
+                             <button onClick={()=>setViewMode('notesByTopic')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${viewMode==='notesByTopic'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Por Tópico</button>
                         </div>
                         
                         {viewMode === 'sessions' && (
@@ -639,24 +648,24 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
                                         placeholder="Buscar nos estudos..." 
-                                        className="w-full p-3 pl-10 bg-white border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-800 outline-none shadow-sm placeholder-stone-400"
+                                        className="w-full p-3 pl-10 bg-white border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-800 outline-none shadow-sm placeholder-stone-400 text-sm"
                                     />
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
-                                        <Icon name="search" size={18} />
+                                        <Icon name="search" size={16} />
                                     </div>
                                 </div>
 
-                                {sessions.length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhum estudo encontrado.</p> : 
+                                {sessions.length === 0 ? <p className="text-stone-500 italic text-center py-12 text-sm">Nenhum estudo encontrado.</p> : 
                                     <div className="space-y-6">
                                         {Object.entries(groupedSessions).map(([label, group]) => group.length > 0 && (
                                             <div key={label}>
-                                                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3 ml-1">{label}</h3>
-                                                <div className="space-y-3">
+                                                <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2 ml-1">{label}</h3>
+                                                <div className="space-y-2">
                                                     {group.map(session => (
-                                                        <div key={session.id} className="flex gap-3 group">
-                                                            <button onClick={() => onSelectSession(session)} className="flex-1 text-left bg-white p-5 rounded-xl border border-stone-200 hover:border-amber-500 shadow-sm transition-all active:scale-[0.99] focus:ring-2 focus:ring-amber-500 focus:outline-none min-w-0">
-                                                                <h4 className="font-bold text-stone-800 mb-1 truncate">{session.title || 'Novo Estudo'}</h4>
-                                                                <p className="text-xs text-stone-400 truncate">
+                                                        <div key={session.id} className="flex gap-2 group">
+                                                            <button onClick={() => onSelectSession(session)} className="flex-1 text-left bg-white p-4 rounded-xl border border-stone-200 hover:border-amber-500 shadow-sm transition-all active:scale-[0.99] focus:ring-2 focus:ring-amber-500 focus:outline-none min-w-0">
+                                                                <h4 className="font-bold text-stone-800 mb-1 truncate text-sm">{session.title || 'Novo Estudo'}</h4>
+                                                                <p className="text-[11px] text-stone-400 truncate">
                                                                     {session.messages && session.messages.length > 0 
                                                                         ? session.messages[session.messages.length-1].content.slice(0, 60) + '...' 
                                                                         : 'Sem mensagens'}
@@ -668,9 +677,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                                                     if(confirm("Apagar este estudo?")) onDeleteSession(session.id);
                                                                 }} 
                                                                 aria-label="Apagar estudo"
-                                                                className="bg-white px-4 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:border-red-200 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shrink-0"
+                                                                className="bg-white px-3 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:border-red-200 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shrink-0"
                                                             >
-                                                                <Icon name="trash-2" size={20} />
+                                                                <Icon name="trash-2" size={18} />
                                                             </button>
                                                         </div>
                                                     ))}
@@ -683,22 +692,22 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         )}
 
                         {viewMode === 'notesByTopic' && (
-                            <div className="space-y-6">
-                                {Object.keys(groupedNotes).length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhuma anotação encontrada.</p> :
+                            <div className="space-y-4">
+                                {Object.keys(groupedNotes).length === 0 ? <p className="text-stone-500 italic text-center py-12 text-sm">Nenhuma anotação encontrada.</p> :
                                     Object.entries(groupedNotes).map(([topic, notes]) => (
                                         <div key={topic} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-                                            <div className="bg-stone-50 p-4 border-b border-stone-100 font-bold text-stone-800 flex items-center gap-2">
-                                                <Icon name="folder" size={16} className="text-amber-700"/> {topic}
+                                            <div className="bg-stone-50 p-3 border-b border-stone-100 font-bold text-stone-800 flex items-center gap-2 text-sm">
+                                                <Icon name="folder" size={14} className="text-amber-700"/> {topic}
                                             </div>
                                             <div className="divide-y divide-stone-100">
                                                 {notes.map(n => (
-                                                    <div key={n.id} className="p-4 hover:bg-stone-50 transition-colors">
+                                                    <div key={n.id} className="p-3 hover:bg-stone-50 transition-colors">
                                                         <div className="flex justify-between items-start mb-1">
-                                                            <span className="font-mono text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{n.ref}</span>
-                                                            <span className="text-[10px] text-stone-400">{new Date(n.date).toLocaleDateString()}</span>
+                                                            <span className="font-mono text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{n.ref}</span>
+                                                            <span className="text-[9px] text-stone-400">{new Date(n.date).toLocaleDateString()}</span>
                                                         </div>
                                                         <p className="text-sm font-medium text-stone-800 mb-1">{n.note}</p>
-                                                        <p className="text-xs text-stone-500 italic">"{n.text}"</p>
+                                                        <p className="text-[11px] text-stone-500 italic">"{n.text}"</p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -727,6 +736,10 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             const [showBookSelector, setShowBookSelector] = useState(false);
             const [targetTopic, setTargetTopic] = useState(currentTopic);
             
+            // Read Log State
+            const [readLog, setReadLog] = useState(DataManager.getReadLog(user.username));
+            const isChapterRead = readLog[`${bookId}_${chapter}`];
+
             // MULTI SELECTION STATE
             const [selectionMode, setSelectionMode] = useState(false);
             const [selectedVerses, setSelectedVerses] = useState([]); // Array of entire verse objects
@@ -740,14 +753,49 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 '#d8b4fe': '🟣 Realeza / Profecia / Promessa'
             };
 
+            // NEW: Semantic Analysis Logic for Topics
+            const analyzeText = useCallback((text) => {
+                if(!text) return [];
+                const t = text.toLowerCase();
+                const tags = [];
+                // Simple keyword mapping for "analysis"
+                if (t.match(/jesus|cristo|messias|cordeiro|filho/)) tags.push("Cristologia");
+                if (t.match(/deus|senhor|yahweh|pai|eterno|criador/)) tags.push("Teologia Própria");
+                if (t.match(/espírito|santo|fogo|vento|consolador/)) tags.push("Pneumatologia");
+                if (t.match(/amor|graça|misericórdia|perdão|bondade/)) tags.push("Graça Divina");
+                if (t.match(/pecado|lei|transgressão|morte|iniquidade/)) tags.push("Redenção");
+                if (t.match(/fé|crer|confiar|esperança|fiel/)) tags.push("Vida de Fé");
+                if (t.match(/oração|clamar|buscar|jejum|súplica/)) tags.push("Vida de Oração");
+                if (t.match(/fim|juízo|vinda|reino|céu|apocalipse/)) tags.push("Escatologia");
+                if (t.match(/sabedoria|ensino|mandamento|palavra|lei/)) tags.push("Sabedoria");
+                if (t.match(/igreja|irmãos|santos|corpo|noiva/)) tags.push("Eclesiologia");
+                return tags;
+            }, []);
+
             const TOPIC_SUGGESTIONS = useMemo(() => {
                 const suggs = [];
-                if(currentTopic && currentTopic !== 'Novo Estudo') suggs.push(currentTopic);
-                suggs.push(`${bookName} Cap. ${chapter}`);
-                suggs.push("Estudo Pessoal");
-                suggs.push("Sermão / Pregação");
-                return suggs;
-            }, [currentTopic, bookName, chapter]);
+                
+                // 1. Context (Chat Active Topic)
+                if(currentTopic && currentTopic !== 'Novo Estudo') {
+                    suggs.push({ text: currentTopic, type: 'context' });
+                }
+                
+                // 2. Reference Standard
+                suggs.push({ text: `${bookName} Cap. ${chapter}`, type: 'ref' });
+
+                // 3. AI/Analysis (Smart Suggestions based on verse text)
+                if(selVerse) {
+                    const smartTags = analyzeText(selVerse.text);
+                    smartTags.forEach(tag => suggs.push({ text: tag, type: 'smart' }));
+                }
+
+                // 4. Fallbacks
+                suggs.push({ text: "Estudo Pessoal", type: 'generic' });
+                suggs.push({ text: "Sermão / Pregação", type: 'generic' });
+
+                // Unique by text
+                return suggs.filter((v,i,a)=>a.findIndex(t=>(t.text === v.text))===i);
+            }, [currentTopic, bookName, chapter, selVerse, analyzeText]);
 
             useEffect(() => { setUserNotes(DataManager.getNotes(user.username)); }, [user.username]);
 
@@ -781,8 +829,12 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             };
 
             const markChapterRead = () => {
-                DataManager.updateDailyProgress(user.username, 1);
-                alert(`Capítulo ${chapter} de ${bookName} marcado como lido!`);
+                if(!isChapterRead) {
+                    DataManager.updateDailyProgress(user.username, 1);
+                    const newLog = DataManager.markRead(user.username, bookId, chapter);
+                    setReadLog(newLog);
+                    alert(`Capítulo ${chapter} de ${bookName} marcado como lido!`);
+                }
             };
 
             // Enhanced Single Verse Save
@@ -913,32 +965,39 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
 
             return (
                 <div className="flex flex-col h-full bg-white relative">
-                    <div className="p-4 bg-white border-b flex gap-2 sticky top-0 z-10 shadow-sm items-center">
+                    <div className="p-3 bg-white border-b flex gap-2 sticky top-0 z-10 shadow-sm items-center h-14">
                         {selectionMode ? (
                             <div className="flex-1 flex items-center justify-between animate-fade-in bg-amber-50 p-2 rounded-lg border border-amber-200">
-                                <span className="font-bold text-amber-900 ml-2">{selectedVerses.length} selecionados</span>
-                                <button onClick={()=>{setSelectionMode(false); setSelectedVerses([])}} className="text-amber-800 p-2"><Icon name="x"/></button>
+                                <span className="font-bold text-amber-900 ml-2 text-sm">{selectedVerses.length} selecionados</span>
+                                <button onClick={()=>{setSelectionMode(false); setSelectedVerses([])}} className="text-amber-800 p-2"><Icon name="x" size={18}/></button>
                             </div>
                         ) : (
                             <>
                                 <button 
                                     onClick={() => setShowBookSelector(true)}
-                                    className="p-3 bg-stone-50 border border-stone-200 rounded-lg flex-1 font-serif text-stone-800 text-base text-left flex justify-between items-center active:bg-stone-100"
+                                    className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg flex-1 font-serif text-stone-800 text-sm text-left flex justify-between items-center active:bg-stone-100"
                                 >
                                     <span className="truncate">{bookName}</span>
-                                    <Icon name="chevron-down" size={16} className="text-stone-400" />
+                                    <Icon name="chevron-down" size={14} className="text-stone-400" />
                                 </button>
                                 <label htmlFor="chapter-input" className="sr-only">Capítulo</label>
-                                <input id="chapter-input" type="number" className="w-20 p-3 bg-stone-50 border border-stone-200 rounded-lg text-center text-base" value={chapter} onChange={e=>loadChapter(bookId, e.target.value)}/>
-                                <button aria-label="Próximo capítulo" onClick={()=>loadChapter(bookId, parseInt(chapter)+1)} className="p-3 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"><Icon name="arrow-right"/></button>
-                                <button aria-label="Modo Seleção" onClick={()=>setSelectionMode(!selectionMode)} className={`p-3 rounded-lg transition-colors ml-1 ${selectionMode ? 'bg-amber-800 text-white' : 'bg-stone-100 text-stone-600'}`}><Icon name="check-square" size={20}/></button>
+                                <div className="relative">
+                                    <input id="chapter-input" type="number" className="w-16 py-2 px-1 bg-stone-50 border border-stone-200 rounded-lg text-center text-sm" value={chapter} onChange={e=>loadChapter(bookId, e.target.value)}/>
+                                    {isChapterRead && (
+                                        <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-3 h-3 flex items-center justify-center border border-white shadow-sm pointer-events-none">
+                                            <Icon name="check" size={8} strokeWidth={4} />
+                                        </div>
+                                    )}
+                                </div>
+                                <button aria-label="Próximo capítulo" onClick={()=>loadChapter(bookId, parseInt(chapter)+1)} className="p-2 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"><Icon name="arrow-right" size={18}/></button>
+                                <button aria-label="Modo Seleção" onClick={()=>setSelectionMode(!selectionMode)} className={`p-2 rounded-lg transition-colors ml-1 ${selectionMode ? 'bg-amber-800 text-white' : 'bg-stone-100 text-stone-600'}`}><Icon name="check-square" size={18}/></button>
                             </>
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#fafaf9] font-serif leading-relaxed pb-32 custom-scroll text-stone-800 select-none">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#fafaf9] font-serif leading-relaxed pb-32 custom-scroll text-stone-800 select-none">
                         {loading ? (
-                            <div className="text-center text-stone-400 mt-20 italic">Carregando escrituras...</div>
+                            <div className="text-center text-stone-400 mt-20 italic text-sm">Carregando escrituras...</div>
                         ) : (
                             <>
                                 {text.map(v => {
@@ -959,9 +1018,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                     );
                                 })}
                                 {text.length > 0 && !selectionMode && (
-                                    <div className="mt-8 pt-8 border-t border-stone-200 text-center">
-                                        <Button onClick={markChapterRead} variant="secondary" className="w-full md:w-auto mx-auto border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100">
-                                            <Icon name="check-circle" size={18}/> Concluir Leitura do Capítulo
+                                    <div className="mt-8 pt-8 border-t border-stone-200 text-center pb-10">
+                                        <Button 
+                                            onClick={markChapterRead} 
+                                            variant={isChapterRead ? "ghost" : "secondary"} 
+                                            className={`w-full md:w-auto mx-auto ${isChapterRead ? 'text-green-600 bg-green-50 border-green-200' : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100'}`}
+                                            disabled={isChapterRead}
+                                        >
+                                            <Icon name={isChapterRead ? "check-check" : "check-circle"} size={18}/> 
+                                            {isChapterRead ? "Leitura Concluída" : "Concluir Leitura do Capítulo"}
                                         </Button>
                                     </div>
                                 )}
@@ -1044,16 +1109,25 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 <div className="mb-4">
                                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Sugerir Tópico</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {TOPIC_SUGGESTIONS.map(s => (
+                                        {TOPIC_SUGGESTIONS.map((s, idx) => (
                                             <button 
-                                                key={s} 
+                                                key={idx} 
                                                 onClick={() => {
-                                                    setTargetTopic(s);
-                                                    alert(`Tópico "${s}" selecionado para esta nota.`);
+                                                    setTargetTopic(s.text);
                                                 }}
-                                                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${targetTopic === s ? 'bg-amber-900 text-white border-amber-900' : 'bg-stone-100 text-stone-600 hover:bg-amber-100 border-stone-200'}`}
+                                                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors flex items-center gap-1
+                                                    ${targetTopic === s.text 
+                                                        ? 'bg-amber-900 text-white border-amber-900' 
+                                                        : s.type === 'smart'
+                                                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                                            : s.type === 'context'
+                                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                                : 'bg-stone-100 text-stone-600 hover:bg-amber-100 border-stone-200'
+                                                    }`}
                                             >
-                                                {s}
+                                                {s.type === 'smart' && <Icon name="sparkles" size={10} />}
+                                                {s.type === 'context' && <Icon name="message-circle" size={10} />}
+                                                {s.text}
                                             </button>
                                         ))}
                                     </div>
@@ -1122,15 +1196,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             }, [notes, filter]);
 
             return (
-                <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
+                <div className="h-full overflow-y-auto p-4 md:p-6 pb-32 custom-scroll">
                     <div className="max-w-2xl mx-auto fade-in">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-serif font-bold text-stone-900">Caderno de Anotações</h2>
+                            <h2 className="text-lg font-serif font-bold text-stone-900">Caderno de Anotações</h2>
                         </div>
                         
                         <div className="flex p-1 bg-stone-100 rounded-xl mb-6 w-full max-w-xs">
-                            <button onClick={()=>setFilter('all')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${filter==='all'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Todas</button>
-                            <button onClick={()=>setFilter('fav')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${filter==='fav'?'bg-white text-amber-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}><Icon name="star" size={14} className={filter==='fav'?'fill-amber-900':''}/> Favoritas</button>
+                            <button onClick={()=>setFilter('all')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${filter==='all'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Todas</button>
+                            <button onClick={()=>setFilter('fav')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${filter==='fav'?'bg-white text-amber-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}><Icon name="star" size={14} className={filter==='fav'?'fill-amber-900':''}/> Favoritas</button>
                         </div>
 
                         {displayedNotes.length === 0 ? (
@@ -1138,7 +1212,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
                                     <Icon name={filter === 'fav' ? 'star' : 'notebook-pen'} size={32}/>
                                 </div>
-                                <p className="text-stone-400 italic">
+                                <p className="text-stone-400 italic text-sm">
                                     {filter === 'fav' ? 'Nenhuma nota favorita encontrada.' : 'Nenhuma anotação. Leia a Bíblia para criar.'}
                                 </p>
                             </div>
@@ -1146,10 +1220,10 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             <div className="space-y-4 fade-in" key={filter}>
                                 {displayedNotes.map(n => (
                                     <div key={n.id} className="bg-white p-0 rounded-xl shadow-sm border border-stone-100 overflow-hidden hover:border-amber-300 transition-all group">
-                                        <div className="p-5">
+                                        <div className="p-4">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2 py-1 rounded-md font-mono flex items-center gap-1">
+                                                    <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-md font-mono flex items-center gap-1">
                                                         <Icon name="bookmark" size={12} className="fill-amber-900"/> {n.ref}
                                                     </span>
                                                     {n.color && <div className="w-3 h-3 rounded-full" style={{backgroundColor: n.color}} title="Marcador"></div>}
@@ -1161,7 +1235,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                                         className={`p-2 rounded-full transition-colors hover:bg-stone-50 ${n.favorite ? 'text-amber-500' : 'text-stone-300 hover:text-amber-400'}`}
                                                         title="Favoritar"
                                                     >
-                                                        <Icon name="star" size={18} className={n.favorite ? "fill-amber-500" : ""} />
+                                                        <Icon name="star" size={16} className={n.favorite ? "fill-amber-500" : ""} />
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDelete(n.id)} 
@@ -1169,19 +1243,19 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                                         className="text-stone-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
                                                         title="Excluir"
                                                     >
-                                                        <Icon name="trash-2" size={18}/>
+                                                        <Icon name="trash-2" size={16}/>
                                                     </button>
                                                 </div>
                                             </div>
-                                            {n.note && <p className="text-stone-800 mb-4 leading-relaxed font-medium">{n.note}</p>}
+                                            {n.note && <p className="text-stone-800 mb-3 leading-relaxed font-medium text-sm">{n.note}</p>}
                                             
                                             <div className="bg-stone-50 p-3 rounded-lg border-l-2 border-stone-300" style={n.color ? {borderLeftColor: n.color} : {}}>
-                                                <p className="text-sm text-stone-500 italic font-serif leading-snug">"{n.text}"</p>
+                                                <p className="text-xs text-stone-500 italic font-serif leading-snug">"{n.text}"</p>
                                             </div>
                                         </div>
-                                        <div className="bg-stone-50 px-5 py-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400 font-medium">
+                                        <div className="bg-stone-50 px-4 py-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-400 font-medium">
                                             <span className="truncate max-w-[150px]">{n.topic ? `Estudo: ${n.topic}` : ''}</span>
-                                            <span className="flex items-center"><Icon name="calendar" size={12} className="mr-1"/> {new Date(n.date).toLocaleDateString()}</span>
+                                            <span className="flex items-center"><Icon name="calendar" size={10} className="mr-1"/> {new Date(n.date).toLocaleDateString()}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -1195,7 +1269,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
         const SettingsView = ({ user, fontSize, onFontSizeChange }) => (
             <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                 <div className="max-w-2xl mx-auto fade-in">
-                    <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Ajustes</h2>
+                    <h2 className="text-lg font-serif font-bold text-stone-900 mb-6">Ajustes</h2>
                     
                     {/* Font Size Slider */}
                     <div className="bg-white p-6 rounded-xl border border-stone-200 mb-6 shadow-sm">
@@ -1578,12 +1652,12 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             return (
                 <div className="flex h-screen bg-[#fafaf9] overflow-hidden">
                     {/* Header Mobile */}
-                    <header className="md:hidden h-16 bg-white border-b border-stone-200 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-40">
+                    <header className="md:hidden h-14 bg-white border-b border-stone-200 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-40">
                          <div className="flex items-center gap-2">
-                             <div className="w-8 h-8 bg-amber-900 text-white rounded-lg flex items-center justify-center"><Icon name="feather" size={16}/></div>
-                             <span className="font-serif font-bold text-lg text-stone-900">BiblioScholar</span>
+                             <div className="w-7 h-7 bg-amber-900 text-white rounded-lg flex items-center justify-center"><Icon name="feather" size={14}/></div>
+                             <span className="font-serif font-bold text-base text-stone-900">BiblioScholar</span>
                          </div>
-                         <button onClick={handleLogout} aria-label="Sair" className="text-stone-400 hover:text-red-500 p-2"><Icon name="log-out" size={20}/></button>
+                         <button onClick={handleLogout} aria-label="Sair" className="text-stone-400 hover:text-red-500 p-2"><Icon name="log-out" size={18}/></button>
                     </header>
 
                     {/* Sidebar Desktop */}
@@ -1620,7 +1694,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         </div>
                     </aside>
 
-                    <main ref={mainRef} className="flex-1 h-full relative overflow-hidden bg-stone-50 pt-16 md:pt-0 transition-opacity duration-200">
+                    <main ref={mainRef} className="flex-1 h-full relative overflow-hidden bg-stone-50 pt-14 md:pt-0 transition-opacity duration-200">
                         {tab === 'home' && <HomeView user={user} onNavigate={(target, data, topic) => target==='daily'?startDaily():startPromptChat(data || '', topic)} />}
                         {tab === 'bible' && <BibleView user={user} fontSize={fontSize} currentTopic={currentTopic} onNavigate={(t,d) => startPromptChat(d)} />}
                         
@@ -1648,7 +1722,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             {id:'settings', i:'settings', l:'Ajustes'}
                         ].map(i => (
                             <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`flex flex-col items-center p-1 rounded-xl transition-all ${tab===i.id?'text-amber-900 bg-amber-50':'text-stone-400 active:scale-95'}`}>
-                                <Icon name={i.i} size={20}/>
+                                <Icon name={i.i} size={18}/>
                                 <span className="text-[10px] mt-1 font-medium">{i.l}</span>
                             </button>
                         ))}
