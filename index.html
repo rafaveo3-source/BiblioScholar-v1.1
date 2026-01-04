@@ -22,12 +22,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fixed Marked Version -->
+    <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/lucide@latest"></script>
 
     <!-- PWA Manifest Injection -->
     <script>
@@ -84,6 +85,9 @@
 
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
         .typing-dot { animation: typing 1.4s infinite ease-in-out both; height: 6px; width: 6px; border-radius: 50%; background-color: #a8a29e; display: inline-block; margin: 0 2px; }
         .typing-dot:nth-child(1) { animation-delay: -0.32s; }
@@ -107,13 +111,50 @@
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #d6d3d1; border-radius: 20px; }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #78350f;
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e7e5e4;
+            border-radius: 2px;
+        }
+
+        /* Screen Reader Only */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
         const renderer = new marked.Renderer();
         const linkRenderer = renderer.link;
@@ -183,7 +224,15 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             getNotes: (username) => JSON.parse(localStorage.getItem(`bs_notes_${username}`) || '[]'),
             saveNote: (username, note) => {
                 const notes = DataManager.getNotes(username);
-                const newNotes = [note, ...notes];
+                // Handle edits or new notes
+                const existingIndex = notes.findIndex(n => n.id === note.id);
+                let newNotes;
+                if (existingIndex >= 0) {
+                    newNotes = [...notes];
+                    newNotes[existingIndex] = { ...newNotes[existingIndex], ...note };
+                } else {
+                    newNotes = [{...note, favorite: false}, ...notes];
+                }
                 localStorage.setItem(`bs_notes_${username}`, JSON.stringify(newNotes));
                 return newNotes;
             },
@@ -193,8 +242,45 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 localStorage.setItem(`bs_notes_${username}`, JSON.stringify(newNotes));
                 return newNotes;
             },
+            toggleNoteFavorite: (username, noteId) => {
+                const notes = DataManager.getNotes(username);
+                const newNotes = notes.map(n => 
+                    n.id === noteId ? { ...n, favorite: !n.favorite } : n
+                );
+                localStorage.setItem(`bs_notes_${username}`, JSON.stringify(newNotes));
+                return newNotes;
+            },
             saveBibleLoc: (username, bookId, chapter) => localStorage.setItem(`bs_bible_loc_${username}`, JSON.stringify({bookId, chapter})),
             getBibleLoc: (username) => JSON.parse(localStorage.getItem(`bs_bible_loc_${username}`) || '{"bookId":"GEN","chapter":1}'),
+            
+            // --- Settings & Progress ---
+            getSettings: () => JSON.parse(localStorage.getItem('bs_settings') || '{"fontSize": 18}'),
+            saveSettings: (settings) => localStorage.setItem('bs_settings', JSON.stringify(settings)),
+
+            getDailyProgress: (username) => {
+                const key = `bs_progress_${username}`;
+                const today = new Date().toLocaleDateString('pt-BR');
+                const stored = JSON.parse(localStorage.getItem(key) || '{}');
+                if (stored.date !== today) {
+                    const newStats = { date: today, current: 0, goal: stored.goal || 1 }; 
+                    localStorage.setItem(key, JSON.stringify(newStats));
+                    return newStats;
+                }
+                return stored;
+            },
+            updateDailyProgress: (username, increment = 1) => {
+                const stats = DataManager.getDailyProgress(username);
+                stats.current += increment;
+                localStorage.setItem(`bs_progress_${username}`, JSON.stringify(stats));
+                return stats;
+            },
+            setDailyGoal: (username, goal) => {
+                const stats = DataManager.getDailyProgress(username);
+                stats.goal = goal;
+                localStorage.setItem(`bs_progress_${username}`, JSON.stringify(stats));
+                return stats;
+            },
+
             exportData: () => {
                 const data = { ...localStorage };
                 const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -220,21 +306,86 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             }
         };
 
-        const Icon = ({ name, size = 20, className = "" }) => {
-            useEffect(() => window.lucide?.createIcons(), [name]);
-            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        const Icon = ({ name, size = 20, className = "", fill = "none" }) => {
+            const ref = useRef(null);
+            
+            useEffect(() => {
+                if(!window.lucide || !ref.current) return;
+                const i = document.createElement('i');
+                i.setAttribute('data-lucide', name);
+                ref.current.innerHTML = '';
+                ref.current.appendChild(i);
+                window.lucide.createIcons({
+                    root: ref.current,
+                    attrs: { width: size, height: size, class: className, fill: fill === 'none' ? 'none' : fill }
+                });
+            }, [name, size, className, fill]);
+
+            return <span ref={ref} style={{ display: 'inline-flex', width: size, height: size }} />;
         };
 
-        const Button = ({ children, onClick, variant = 'primary', className = '', disabled=false, title='' }) => {
-            const base = "px-4 py-2 rounded-lg font-medium transition-all active:scale-95 flex items-center justify-center gap-2";
+        const Button = ({ children, onClick, variant = 'primary', className = '', disabled=false, title='', ariaLabel='' }) => {
+            const base = "px-4 py-2 rounded-lg font-medium transition-all active:scale-95 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500";
             const styles = {
                 primary: "bg-amber-900 text-amber-50 shadow hover:bg-amber-800",
                 secondary: "bg-white border border-stone-200 text-stone-700 hover:bg-stone-50",
                 ghost: "text-stone-500 hover:bg-stone-100",
                 danger: "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
             };
-            return <button onClick={onClick} disabled={disabled} title={title} className={`${base} ${styles[variant]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{children}</button>;
+            return <button onClick={onClick} disabled={disabled} title={title} aria-label={ariaLabel || title} className={`${base} ${styles[variant]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{children}</button>;
         };
+
+        // --- OPTIMIZED COMPONENTS ---
+        
+        const VerseItem = React.memo(({ verse, isSelected, hasNote, markerColor, onClick, onLongPress, fontSize, selectionMode }) => {
+            const markerStyle = markerColor ? { 
+                borderBottom: `3px solid ${markerColor}`,
+                backgroundColor: `${markerColor}20` // 20 hex opacity (approx 12%)
+            } : {};
+
+            const pressTimer = useRef(null);
+
+            const handleTouchStart = () => {
+                pressTimer.current = setTimeout(() => {
+                    if (onLongPress) onLongPress(verse);
+                }, 500); // 500ms long press
+            };
+
+            const handleTouchEnd = () => {
+                if (pressTimer.current) clearTimeout(pressTimer.current);
+            };
+
+            return (
+                <span 
+                    onClick={() => onClick(verse)} 
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={() => { if(!('ontouchstart' in window)) handleTouchStart() }}
+                    onMouseUp={() => { if(!('ontouchstart' in window)) handleTouchEnd() }}
+                    role="button"
+                    tabIndex={0}
+                    style={{ ...markerStyle, fontSize: `${fontSize}px` }}
+                    className={`cursor-pointer hover:bg-amber-100 rounded px-1 transition-colors inline-block leading-relaxed mb-1 mr-1 ${isSelected ? 'bg-amber-800 text-white' : ''} ${hasNote && !markerColor && !isSelected ? 'has-note' : ''}`}
+                >
+                    <sup className={`text-xs font-sans mr-1 select-none font-bold align-super ${isSelected ? 'text-amber-200' : 'text-stone-400'}`}>
+                        {verse.verse}
+                        {hasNote && !isSelected && (
+                            <span className="inline-flex items-center justify-center w-3 h-3 ml-0.5 bg-amber-100 text-amber-800 rounded-full text-[8px] align-middle shadow-sm">
+                                <Icon name="file-text" size={8} />
+                            </span>
+                        )}
+                    </sup>
+                    {verse.text} 
+                </span>
+            );
+        }, (prev, next) => {
+            return prev.verse.verse === next.verse.verse && 
+                   prev.isSelected === next.isSelected && 
+                   prev.hasNote === next.hasNote &&
+                   prev.markerColor === next.markerColor &&
+                   prev.fontSize === next.fontSize &&
+                   prev.selectionMode === next.selectionMode;
+        });
 
         // --- SCREENS ---
 
@@ -249,7 +400,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 e.preventDefault();
                 if (!user || !pass) return setErr("Preencha tudo.");
                 const res = isReg ? DataManager.saveUser(user, pass) : DataManager.login(user, pass);
-                if (res) onLogin(res); else setErr(isReg ? "Usuário já existe" : "Credenciais inválidas.");
+                if (res) onLogin(res); else setErr(isReg ? "Usuário já existe" : "Usuário ou senha inválidos. Tente novamente.");
             };
             return (
                 <div className="h-full flex items-center justify-center p-6 bg-[#fafaf9] overflow-y-auto custom-scroll">
@@ -260,7 +411,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         </div>
                         <form onSubmit={submit} className="space-y-4">
                             <div>
+                                <label className="sr-only" htmlFor="username">Usuário</label>
                                 <input 
+                                    id="username"
                                     value={user} 
                                     onChange={e=>setUser(e.target.value)} 
                                     className="w-full p-3 bg-white text-stone-900 border border-stone-200 rounded-lg focus:ring-2 focus:ring-amber-800 outline-none placeholder-stone-400 transition-colors" 
@@ -268,7 +421,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 />
                             </div>
                             <div className="relative">
+                                <label className="sr-only" htmlFor="password">Senha</label>
                                 <input 
+                                    id="password"
                                     type={showPass ? "text" : "password"} 
                                     value={pass} 
                                     onChange={e=>setPass(e.target.value)} 
@@ -278,13 +433,16 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 <button 
                                     type="button"
                                     onClick={() => setShowPass(!showPass)}
+                                    aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
                                 >
                                     <Icon name={showPass ? "eye-off" : "eye"} size={18} />
                                 </button>
                             </div>
-                            {err && <p className="text-red-500 text-xs">{err}</p>}
-                            <Button className="w-full">{isReg ? 'Criar Conta' : 'Entrar'}</Button>
+                            {err && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-xs flex items-center gap-2"><Icon name="alert-circle" size={16}/> {err}</div>}
+                            <Button className="w-full">
+                                {isReg ? 'Criar Conta' : <><Icon name="log-in" size={18} /> Entrar</>}
+                            </Button>
                         </form>
                         <button onClick={() => setIsReg(!isReg)} className="w-full mt-4 text-sm text-stone-500 underline">{isReg ? 'Já tenho conta' : 'Criar conta nova'}</button>
                     </div>
@@ -322,11 +480,66 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
 
         const HomeView = ({ user, onNavigate }) => {
             const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+            const [progress, setProgress] = useState(DataManager.getDailyProgress(user.username));
+            const [editingGoal, setEditingGoal] = useState(false);
+
+            const refreshProgress = () => setProgress(DataManager.getDailyProgress(user.username));
+            
+            const SUGGESTED_STUDIES = useMemo(() => [
+                { id: 1, title: "Sermão da Montanha", icon: "mountain", prompt: "Faça uma análise profunda do Sermão da Montanha (Mateus 5-7), focando nas bem-aventuranças e sua aplicação prática hoje." },
+                { id: 2, title: "Vida de Davi", icon: "crown", prompt: "Explore a ascensão e queda do Rei Davi, extraindo lições de liderança, arrependimento e fé a partir de 1 e 2 Samuel." },
+                { id: 3, title: "Parábolas de Jesus", icon: "sprout", prompt: "Explique as principais parábolas de Jesus em Lucas, destacando o contexto cultural e o significado do Reino de Deus." },
+                { id: 4, title: "Mulheres da Bíblia", icon: "heart", prompt: "Destaque a importância de Rute, Ester e Maria Madalena na narrativa bíblica e na história da redenção." }
+            ], []);
+
+            const handleSetGoal = (newGoal) => {
+                DataManager.setDailyGoal(user.username, parseInt(newGoal));
+                refreshProgress();
+                setEditingGoal(false);
+            };
+
+            const percentage = Math.min((progress.current / progress.goal) * 100, 100);
+
             return (
                 <div className="h-full overflow-y-auto p-6 md:p-12 pb-32 custom-scroll">
                     <div className="max-w-4xl mx-auto fade-in">
                         <h1 className="text-xl md:text-3xl font-serif font-bold text-stone-900 mb-2">Olá, {user.username}.</h1>
-                        <p className="text-stone-600 mb-8">Seu perfil: <strong>{user.profile.level}</strong>.</p>
+                        <p className="text-stone-600 mb-6">Seu perfil: <strong>{user.profile.level}</strong>.</p>
+
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 mb-8 relative overflow-hidden">
+                            <div className="flex justify-between items-end mb-2 relative z-10">
+                                <div>
+                                    <h3 className="text-stone-500 text-xs font-bold uppercase tracking-wider mb-1">Meta Diária de Leitura</h3>
+                                    {editingGoal ? (
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="number" 
+                                                min="1" 
+                                                max="50" 
+                                                defaultValue={progress.goal} 
+                                                id="goalInput" 
+                                                className="w-16 p-1 border border-stone-300 rounded text-lg font-bold text-stone-900 bg-white text-center focus:ring-2 focus:ring-amber-500 outline-none" 
+                                            />
+                                            <button onClick={() => handleSetGoal(document.getElementById('goalInput').value)} className="bg-amber-900 text-white px-3 py-1 rounded text-sm hover:bg-amber-800 transition-colors">Salvar</button>
+                                            <button onClick={() => setEditingGoal(false)} className="text-stone-400 text-sm hover:underline hover:text-stone-600">Cancelar</button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-baseline gap-2 cursor-pointer group" onClick={() => setEditingGoal(true)} title="Clique para alterar meta">
+                                            <span className="text-3xl font-serif font-bold text-amber-900">{progress.current}</span>
+                                            <span className="text-stone-400 font-serif">/ {progress.goal} capítulos</span>
+                                            <Icon name="edit-2" size={14} className="text-stone-300 group-hover:text-amber-500 transition-colors ml-2"/>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-right">
+                                    <Icon name={percentage >= 100 ? "trophy" : "target"} size={32} className={percentage >= 100 ? "text-amber-500" : "text-stone-200"} />
+                                </div>
+                            </div>
+                            <div className="w-full bg-stone-100 rounded-full h-2 relative z-10">
+                                <div className="bg-amber-900 h-2 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+                            </div>
+                            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-amber-50 rounded-full opacity-50 z-0"></div>
+                        </div>
 
                         <div onClick={() => onNavigate('chat')} className="bg-amber-900 text-white p-8 rounded-2xl shadow-lg mb-8 cursor-pointer hover:shadow-xl transition-all relative overflow-hidden group transform hover:-translate-y-1">
                             <div className="relative z-10">
@@ -335,22 +548,21 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             </div>
                         </div>
 
-                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg">Trilhas Sugeridas</h3>
+                        <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg flex items-center gap-2">
+                            <Icon name="sparkles" size={18} className="text-amber-600"/> Descubra Novos Estudos
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                            <div onClick={() => onNavigate('chat', "Faça uma exegese detalhada dos Salmos, focando em poesia e teologia.")} className="bg-white p-6 rounded-xl border border-stone-200 hover:border-amber-500 transition-colors cursor-pointer shadow-sm">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="p-2 bg-amber-50 text-amber-900 rounded-lg"><Icon name="scroll" size={20} /></div>
-                                    <h4 className="font-bold text-stone-800 text-lg">Exegese de Salmos</h4>
+                            {SUGGESTED_STUDIES.map(study => (
+                                <div key={study.id} onClick={() => onNavigate('chat', study.prompt, study.title)} className="bg-white p-5 rounded-xl border border-stone-200 hover:border-amber-500 transition-all cursor-pointer shadow-sm hover:shadow-md group">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 bg-stone-50 text-stone-600 rounded-lg group-hover:bg-amber-50 group-hover:text-amber-900 transition-colors">
+                                            <Icon name={study.icon} size={20} />
+                                        </div>
+                                        <h4 className="font-bold text-stone-800 text-base">{study.title}</h4>
+                                    </div>
+                                    <p className="text-xs text-stone-500 leading-relaxed line-clamp-2">{study.prompt}</p>
                                 </div>
-                                <p className="text-sm text-stone-500 leading-relaxed">Análise poética e teológica dos salmos mais importantes.</p>
-                            </div>
-                            <div onClick={() => onNavigate('chat', "Descreva as viagens missionárias de Paulo com contexto geográfico e histórico.")} className="bg-white p-6 rounded-xl border border-stone-200 hover:border-amber-500 transition-colors cursor-pointer shadow-sm">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="p-2 bg-amber-50 text-amber-900 rounded-lg"><Icon name="map" size={20} /></div>
-                                    <h4 className="font-bold text-stone-800 text-lg">Paulo e suas Viagens</h4>
-                                </div>
-                                <p className="text-sm text-stone-500 leading-relaxed">Contexto geográfico e histórico da expansão do evangelho.</p>
-                            </div>
+                            ))}
                         </div>
 
                         <h3 className="font-serif font-bold text-stone-900 mb-4 text-lg">Leitura Diária ({today})</h3>
@@ -368,48 +580,176 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             );
         };
 
-        const HistoryView = ({ sessions, onSelectSession, onDeleteSession }) => (
-            <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
-                <div className="max-w-2xl mx-auto fade-in">
-                    <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Seus Estudos</h2>
-                    <div className="space-y-3">
-                        {sessions.length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhum estudo encontrado.</p> : 
-                            sessions.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(session => (
-                                <div key={session.id} className="flex gap-3 group">
-                                    <button onClick={() => onSelectSession(session)} className="flex-1 text-left bg-white p-5 rounded-xl border border-stone-200 hover:border-amber-500 shadow-sm transition-all active:scale-[0.98]">
-                                        <h4 className="font-bold text-stone-800 mb-1 truncate">{session.title || 'Novo Estudo'}</h4>
-                                        <p className="text-xs text-stone-400">{new Date(session.updatedAt).toLocaleDateString()} • {new Date(session.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                    </button>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation(); 
-                                            if(confirm("Apagar este estudo?")) onDeleteSession(session.id);
-                                        }} 
-                                        className="bg-white px-4 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:border-red-200 transition-colors"
-                                    >
-                                        <Icon name="trash-2" size={20} />
-                                    </button>
+        const HistoryView = ({ sessions, onSelectSession, onDeleteSession }) => {
+            const [search, setSearch] = useState('');
+            const [viewMode, setViewMode] = useState('sessions'); // 'sessions' | 'notesByTopic'
+            const [userNotes, setUserNotes] = useState([]);
+            
+            useEffect(() => {
+                const u = JSON.parse(localStorage.getItem('bs_current_user'));
+                if(u) setUserNotes(DataManager.getNotes(u.username));
+            }, []);
+
+            const groupedSessions = useMemo(() => {
+                const now = new Date();
+                const today = now.toLocaleDateString();
+                const yesterday = new Date(now.setDate(now.getDate() - 1)).toLocaleDateString();
+                
+                const filtered = sessions.filter(s => 
+                    (s.title || 'Novo Estudo').toLowerCase().includes(search.toLowerCase()) ||
+                    (s.messages && s.messages.some(m => m.content.toLowerCase().includes(search.toLowerCase())))
+                ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+                const groups = { 'Hoje': [], 'Ontem': [], 'Antigos': [] };
+                
+                filtered.forEach(session => {
+                    const d = new Date(session.updatedAt).toLocaleDateString();
+                    if (d === today) groups['Hoje'].push(session);
+                    else if (d === yesterday) groups['Ontem'].push(session);
+                    else groups['Antigos'].push(session);
+                });
+                return groups;
+            }, [sessions, search]);
+
+            const groupedNotes = useMemo(() => {
+                 const groups = {};
+                 userNotes.forEach(n => {
+                     const topic = n.topic || 'Geral';
+                     if (!groups[topic]) groups[topic] = [];
+                     groups[topic].push(n);
+                 });
+                 return groups;
+            }, [userNotes]);
+
+            return (
+                <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
+                    <div className="max-w-2xl mx-auto fade-in">
+                        <h2 className="text-xl font-serif font-bold text-stone-900 mb-4">Seus Estudos</h2>
+                        
+                        <div className="flex p-1 bg-stone-100 rounded-xl mb-6">
+                             <button onClick={()=>setViewMode('sessions')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${viewMode==='sessions'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Sessões de Chat</button>
+                             <button onClick={()=>setViewMode('notesByTopic')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${viewMode==='notesByTopic'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Por Tópico</button>
+                        </div>
+                        
+                        {viewMode === 'sessions' && (
+                            <>
+                                <div className="relative mb-6">
+                                    <input 
+                                        type="text" 
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder="Buscar nos estudos..." 
+                                        className="w-full p-3 pl-10 bg-white border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-800 outline-none shadow-sm placeholder-stone-400"
+                                    />
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
+                                        <Icon name="search" size={18} />
+                                    </div>
                                 </div>
-                            ))
-                        }
+
+                                {sessions.length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhum estudo encontrado.</p> : 
+                                    <div className="space-y-6">
+                                        {Object.entries(groupedSessions).map(([label, group]) => group.length > 0 && (
+                                            <div key={label}>
+                                                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3 ml-1">{label}</h3>
+                                                <div className="space-y-3">
+                                                    {group.map(session => (
+                                                        <div key={session.id} className="flex gap-3 group">
+                                                            <button onClick={() => onSelectSession(session)} className="flex-1 text-left bg-white p-5 rounded-xl border border-stone-200 hover:border-amber-500 shadow-sm transition-all active:scale-[0.99] focus:ring-2 focus:ring-amber-500 focus:outline-none min-w-0">
+                                                                <h4 className="font-bold text-stone-800 mb-1 truncate">{session.title || 'Novo Estudo'}</h4>
+                                                                <p className="text-xs text-stone-400 truncate">
+                                                                    {session.messages && session.messages.length > 0 
+                                                                        ? session.messages[session.messages.length-1].content.slice(0, 60) + '...' 
+                                                                        : 'Sem mensagens'}
+                                                                </p>
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); 
+                                                                    if(confirm("Apagar este estudo?")) onDeleteSession(session.id);
+                                                                }} 
+                                                                aria-label="Apagar estudo"
+                                                                className="bg-white px-4 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:border-red-200 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shrink-0"
+                                                            >
+                                                                <Icon name="trash-2" size={20} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                }
+                            </>
+                        )}
+
+                        {viewMode === 'notesByTopic' && (
+                            <div className="space-y-6">
+                                {Object.keys(groupedNotes).length === 0 ? <p className="text-stone-500 italic text-center py-12">Nenhuma anotação encontrada.</p> :
+                                    Object.entries(groupedNotes).map(([topic, notes]) => (
+                                        <div key={topic} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                                            <div className="bg-stone-50 p-4 border-b border-stone-100 font-bold text-stone-800 flex items-center gap-2">
+                                                <Icon name="folder" size={16} className="text-amber-700"/> {topic}
+                                            </div>
+                                            <div className="divide-y divide-stone-100">
+                                                {notes.map(n => (
+                                                    <div key={n.id} className="p-4 hover:bg-stone-50 transition-colors">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className="font-mono text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{n.ref}</span>
+                                                            <span className="text-[10px] text-stone-400">{new Date(n.date).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="text-sm font-medium text-stone-800 mb-1">{n.note}</p>
+                                                        <p className="text-xs text-stone-500 italic">"{n.text}"</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-        );
+            );
+        };
 
-        const BibleView = ({ user, onNavigate }) => {
-            const saved = DataManager.getBibleLoc(user.username);
+        const BibleView = ({ user, onNavigate, fontSize, currentTopic }) => {
+            const saved = useMemo(() => DataManager.getBibleLoc(user.username), [user.username]);
             const [books, setBooks] = useState([]);
             const [bookId, setBookId] = useState(saved.bookId);
             const [bookName, setBookName] = useState('Gênesis');
             const [chapter, setChapter] = useState(saved.chapter);
             const [text, setText] = useState([]);
             const [loading, setLoading] = useState(false);
-            const [selVerse, setSelVerse] = useState(null);
+            const [selVerse, setSelVerse] = useState(null); // Single verse for modal
             const [note, setNote] = useState('');
+            const [selColor, setSelColor] = useState(null);
             const [userNotes, setUserNotes] = useState(DataManager.getNotes(user.username));
+            const [showBookSelector, setShowBookSelector] = useState(false);
+            const [targetTopic, setTargetTopic] = useState(currentTopic);
+            
+            // MULTI SELECTION STATE
+            const [selectionMode, setSelectionMode] = useState(false);
+            const [selectedVerses, setSelectedVerses] = useState([]); // Array of entire verse objects
 
-            useEffect(() => { setUserNotes(DataManager.getNotes(user.username)); }, []);
+            // COLOR MEANINGS MAP
+            const COLOR_MEANINGS = {
+                '#fca5a5': '🔴 Pecado / Alerta / Perigo',
+                '#fcd34d': '🟡 Divindade / Glória / Fé',
+                '#86efac': '🟢 Vida / Crescimento / Natureza',
+                '#93c5fd': '🔵 Céu / Espírito Santo / Oração',
+                '#d8b4fe': '🟣 Realeza / Profecia / Promessa'
+            };
+
+            const TOPIC_SUGGESTIONS = useMemo(() => {
+                const suggs = [];
+                if(currentTopic && currentTopic !== 'Novo Estudo') suggs.push(currentTopic);
+                suggs.push(`${bookName} Cap. ${chapter}`);
+                suggs.push("Estudo Pessoal");
+                suggs.push("Sermão / Pregação");
+                return suggs;
+            }, [currentTopic, bookName, chapter]);
+
+            useEffect(() => { setUserNotes(DataManager.getNotes(user.username)); }, [user.username]);
 
             useEffect(() => {
                 const bks = [{id:'GEN',n:'Gênesis'},{id:'EXO',n:'Êxodo'},{id:'LEV',n:'Levítico'},{id:'NUM',n:'Números'},{id:'DEU',n:'Deuteronômio'},{id:'JOS',n:'Josué'},{id:'JDG',n:'Juízes'},{id:'RUT',n:'Rute'},{id:'1SA',n:'1 Samuel'},{id:'2SA',n:'2 Samuel'},{id:'PSA',n:'Salmos'},{id:'PRO',n:'Provérbios'},{id:'ECC',n:'Eclesiastes'},{id:'SNG',n:'Cantares'},{id:'ISA',n:'Isaías'},{id:'JER',n:'Jeremias'},{id:'LAM',n:'Lamentações'},{id:'EZK',n:'Ezequiel'},{id:'DAN',n:'Daniel'},{id:'HOS',n:'Oseias'},{id:'JOL',n:'Joel'},{id:'AMO',n:'Amós'},{id:'OBA',n:'Obadias'},{id:'JON',n:'Jonas'},{id:'MIC',n:'Miqueias'},{id:'NAM',n:'Naum'},{id:'HAB',n:'Habacuque'},{id:'ZEP',n:'Sofonias'},{id:'HAG',n:'Ageu'},{id:'ZEC',n:'Zacarias'},{id:'MAL',n:'Malaquias'},{id:'MAT',n:'Mateus'},{id:'MRK',n:'Marcos'},{id:'LUK',n:'Lucas'},{id:'JHN',n:'João'},{id:'ACT',n:'Atos'},{id:'ROM',n:'Romanos'},{id:'1CO',n:'1 Coríntios'},{id:'2CO',n:'2 Coríntios'},{id:'GAL',n:'Gálatas'},{id:'EPH',n:'Efésios'},{id:'PHP',n:'Filipenses'},{id:'COL',n:'Colossenses'},{id:'1TH',n:'1 Tessalonicenses'},{id:'2TH',n:'2 Tessalonicenses'},{id:'1TI',n:'1 Timóteo'},{id:'2TI',n:'2 Timóteo'},{id:'TIT',n:'Tito'},{id:'PHM',n:'Filemom'},{id:'HEB',n:'Hebreus'},{id:'JAS',n:'Tiago'},{id:'1PE',n:'1 Pedro'},{id:'2PE',n:'2 Pedro'},{id:'1JN',n:'1 João'},{id:'2JN',n:'2 João'},{id:'3JN',n:'3 João'},{id:'JUD',n:'Judas'},{id:'REV',n:'Apocalipse'}];
@@ -417,81 +757,339 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 const b = bks.find(x => x.id === bookId);
                 if(b) setBookName(b.n);
                 loadChapter(bookId, chapter);
-            }, []);
+            }, []); 
 
             const loadChapter = async (bid, ch) => {
                 if (!ch || isNaN(ch) || ch < 1) { setChapter(ch); return; }
                 setLoading(true);
+                setText([]); 
+                setSelectionMode(false);
+                setSelectedVerses([]);
                 try {
                     const res = await fetch(`https://bible-api.com/${bid}+${ch}?translation=almeida`);
                     const data = await res.json();
                     if(data.verses) {
-                        setText(data.verses);
-                        setBookId(bid);
+                        ReactDOM.unstable_batchedUpdates(() => {
+                            setText(data.verses);
+                            setBookId(bid);
+                            setChapter(ch);
+                        });
                         DataManager.saveBibleLoc(user.username, bid, ch);
                     }
-                    setChapter(ch);
                 } catch(e) { console.error("Erro API"); }
                 setLoading(false);
             };
 
+            const markChapterRead = () => {
+                DataManager.updateDailyProgress(user.username, 1);
+                alert(`Capítulo ${chapter} de ${bookName} marcado como lido!`);
+            };
+
+            // Enhanced Single Verse Save
             const saveNote = () => {
-                if(!note.trim()) return;
-                const newNotes = DataManager.saveNote(user.username, {
-                    id: Date.now(),
-                    ref: `${bookName} ${chapter}:${selVerse.verse}`,
+                const refCheck = `${bookName} ${chapter}:${selVerse.verse}`;
+                const existingNote = userNotes.find(n => n.ref === refCheck);
+                
+                const notePayload = {
+                    id: existingNote ? existingNote.id : Date.now(),
+                    ref: refCheck,
                     text: selVerse.text,
                     note: note,
+                    color: selColor,
+                    topic: targetTopic, 
                     date: new Date().toISOString()
-                });
+                };
+
+                const newNotes = DataManager.saveNote(user.username, notePayload);
                 setUserNotes(newNotes);
+                
                 setNote('');
+                setSelColor(null);
                 setSelVerse(null);
-                alert("Nota salva!");
             };
 
-            const hasNote = (verseNum) => {
-                const refCheck = `${bookName} ${chapter}:${verseNum}`;
-                return userNotes.some(n => n.ref === refCheck);
+            // Batch Actions
+            const handleBatchCopy = () => {
+                const sorted = [...selectedVerses].sort((a,b) => a.verse - b.verse);
+                const textToCopy = sorted.map(v => `${v.verse}. ${v.text}`).join('\n');
+                const ref = `${bookName} ${chapter}:${sorted[0].verse}-${sorted[sorted.length-1].verse}`;
+                navigator.clipboard.writeText(`${ref}\n\n${textToCopy}`);
+                setSelectionMode(false);
+                setSelectedVerses([]);
+                alert("Versículos copiados!");
             };
+
+            const handleBatchColor = (color) => {
+                 let updatedNotes = [...userNotes];
+                 selectedVerses.forEach(v => {
+                     const refCheck = `${bookName} ${chapter}:${v.verse}`;
+                     const existingIndex = updatedNotes.findIndex(n => n.ref === refCheck);
+                     const notePayload = {
+                        id: existingIndex >= 0 ? updatedNotes[existingIndex].id : Date.now() + Math.random(),
+                        ref: refCheck,
+                        text: v.text,
+                        note: existingIndex >= 0 ? updatedNotes[existingIndex].note : '',
+                        color: color,
+                        topic: currentTopic,
+                        date: new Date().toISOString()
+                     };
+                     updatedNotes = DataManager.saveNote(user.username, notePayload);
+                 });
+                 setUserNotes(updatedNotes);
+                 setSelectionMode(false);
+                 setSelectedVerses([]);
+            };
+
+            const handleColorUpdate = (color) => {
+                setSelColor(color);
+                const refCheck = `${bookName} ${chapter}:${selVerse.verse}`;
+                const existingNote = userNotes.find(n => n.ref === refCheck);
+                
+                const notePayload = {
+                    id: existingNote ? existingNote.id : Date.now(),
+                    ref: refCheck,
+                    text: selVerse.text,
+                    note: note,
+                    color: color,
+                    topic: targetTopic,
+                    date: new Date().toISOString()
+                };
+
+                const newNotes = DataManager.saveNote(user.username, notePayload);
+                setUserNotes(newNotes);
+            };
+
+            const handleShare = async () => {
+                const shareText = `"${selVerse.text}" - ${bookName} ${chapter}:${selVerse.verse}`;
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: 'BiblioScholar',
+                            text: shareText + (note ? `\n\nNota: ${note}` : '')
+                        });
+                    } catch (err) { console.log('Erro ao compartilhar', err); }
+                } else {
+                    navigator.clipboard.writeText(shareText);
+                    alert("Versículo copiado para a área de transferência!");
+                }
+            };
+
+            const getVerseData = useCallback((verseNum) => {
+                const refCheck = `${bookName} ${chapter}:${verseNum}`;
+                const note = userNotes.find(n => n.ref === refCheck);
+                return { hasNote: !!note, color: note?.color };
+            }, [bookName, chapter, userNotes]);
+
+            const handleVerseClick = useCallback((v) => {
+                if (selectionMode) {
+                    setSelectedVerses(prev => {
+                        const exists = prev.find(pv => pv.verse === v.verse);
+                        if (exists) return prev.filter(pv => pv.verse !== v.verse);
+                        return [...prev, v];
+                    });
+                } else {
+                    setSelVerse(v);
+                    const data = getVerseData(v.verse);
+                    setTargetTopic(currentTopic || `${bookName} Cap. ${chapter}`);
+                    if(data.hasNote) {
+                         const refCheck = `${bookName} ${chapter}:${v.verse}`;
+                         const n = userNotes.find(not => not.ref === refCheck);
+                         setNote(n.note || '');
+                         setSelColor(n.color || null);
+                         if(n.topic) setTargetTopic(n.topic);
+                    } else {
+                        setNote('');
+                        setSelColor(null);
+                    }
+                }
+            }, [selectionMode, getVerseData, userNotes, bookName, chapter, currentTopic]);
+
+            const handleLongPress = useCallback((v) => {
+                if (!selectionMode) {
+                    setSelectionMode(true);
+                    setSelectedVerses([v]);
+                }
+            }, [selectionMode]);
 
             return (
-                <div className="flex flex-col h-full bg-white">
+                <div className="flex flex-col h-full bg-white relative">
                     <div className="p-4 bg-white border-b flex gap-2 sticky top-0 z-10 shadow-sm items-center">
-                        <select className="p-3 bg-stone-50 border border-stone-200 rounded-lg flex-1 font-serif text-stone-800 text-base" value={bookId} onChange={e=>{
-                            const b = books.find(x=>x.id===e.target.value);
-                            setBookName(b.n);
-                            loadChapter(e.target.value, 1);
-                        }}>
-                            {books.map(b=><option key={b.id} value={b.id}>{b.n}</option>)}
-                        </select>
-                        <input type="number" className="w-20 p-3 bg-stone-50 border border-stone-200 rounded-lg text-center text-base" value={chapter} onChange={e=>loadChapter(bookId, e.target.value)}/>
-                        <button onClick={()=>loadChapter(bookId, parseInt(chapter)+1)} className="p-3 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"><Icon name="arrow-right"/></button>
+                        {selectionMode ? (
+                            <div className="flex-1 flex items-center justify-between animate-fade-in bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                <span className="font-bold text-amber-900 ml-2">{selectedVerses.length} selecionados</span>
+                                <button onClick={()=>{setSelectionMode(false); setSelectedVerses([])}} className="text-amber-800 p-2"><Icon name="x"/></button>
+                            </div>
+                        ) : (
+                            <>
+                                <button 
+                                    onClick={() => setShowBookSelector(true)}
+                                    className="p-3 bg-stone-50 border border-stone-200 rounded-lg flex-1 font-serif text-stone-800 text-base text-left flex justify-between items-center active:bg-stone-100"
+                                >
+                                    <span className="truncate">{bookName}</span>
+                                    <Icon name="chevron-down" size={16} className="text-stone-400" />
+                                </button>
+                                <label htmlFor="chapter-input" className="sr-only">Capítulo</label>
+                                <input id="chapter-input" type="number" className="w-20 p-3 bg-stone-50 border border-stone-200 rounded-lg text-center text-base" value={chapter} onChange={e=>loadChapter(bookId, e.target.value)}/>
+                                <button aria-label="Próximo capítulo" onClick={()=>loadChapter(bookId, parseInt(chapter)+1)} className="p-3 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"><Icon name="arrow-right"/></button>
+                                <button aria-label="Modo Seleção" onClick={()=>setSelectionMode(!selectionMode)} className={`p-3 rounded-lg transition-colors ml-1 ${selectionMode ? 'bg-amber-800 text-white' : 'bg-stone-100 text-stone-600'}`}><Icon name="check-square" size={20}/></button>
+                            </>
+                        )}
                     </div>
-                    {/* FIXED: Reduced font size for mobile, kept larger for desktop */}
-                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#fafaf9] font-serif text-base md:text-lg leading-relaxed pb-32 custom-scroll text-stone-800">
-                        {loading ? <div className="text-center text-stone-400 mt-20 italic">Carregando escrituras...</div> : text.map(v => (
-                            <span key={v.verse} onClick={()=>setSelVerse(v)} className={`cursor-pointer hover:bg-amber-100 rounded px-1 transition-colors inline-block ${selVerse?.verse===v.verse?'bg-amber-200':''} ${hasNote(v.verse)?'has-note':''}`}>
-                                <sup className="text-xs text-stone-400 font-sans mr-1 select-none font-bold">{v.verse}</sup>{v.text} 
-                            </span>
-                        ))}
+
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#fafaf9] font-serif leading-relaxed pb-32 custom-scroll text-stone-800 select-none">
+                        {loading ? (
+                            <div className="text-center text-stone-400 mt-20 italic">Carregando escrituras...</div>
+                        ) : (
+                            <>
+                                {text.map(v => {
+                                    const vData = getVerseData(v.verse);
+                                    const isSelected = selectedVerses.some(sv => sv.verse === v.verse);
+                                    return (
+                                        <VerseItem 
+                                            key={v.verse} 
+                                            verse={v} 
+                                            isSelected={selVerse?.verse === v.verse || isSelected} 
+                                            hasNote={vData.hasNote}
+                                            markerColor={vData.color} 
+                                            onClick={handleVerseClick}
+                                            onLongPress={handleLongPress}
+                                            fontSize={fontSize}
+                                            selectionMode={selectionMode}
+                                        />
+                                    );
+                                })}
+                                {text.length > 0 && !selectionMode && (
+                                    <div className="mt-8 pt-8 border-t border-stone-200 text-center">
+                                        <Button onClick={markChapterRead} variant="secondary" className="w-full md:w-auto mx-auto border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100">
+                                            <Icon name="check-circle" size={18}/> Concluir Leitura do Capítulo
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
-                    {selVerse && (
-                        /* FIXED: Changed items-end to items-center to center the modal */
-                        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-2xl animate-slide-up border-t-4 border-amber-800">
-                                <div className="flex justify-between mb-4">
-                                    <h3 className="font-bold text-stone-900 text-lg font-serif">{bookName} {chapter}:{selVerse.verse}</h3>
-                                    <button onClick={()=>setSelVerse(null)}><Icon name="x"/></button>
+
+                    {/* BATCH ACTION BAR */}
+                    {selectionMode && selectedVerses.length > 0 && (
+                        <div className="fixed bottom-20 md:bottom-4 left-4 right-4 bg-white p-4 rounded-2xl shadow-2xl border border-stone-200 flex justify-around items-center z-50 animate-slide-up">
+                            <button onClick={handleBatchCopy} className="flex flex-col items-center text-stone-600 hover:text-amber-900"><div className="p-2 bg-stone-100 rounded-full mb-1"><Icon name="copy" size={20}/></div><span className="text-[10px] font-bold">Copiar</span></button>
+                            <div className="h-8 w-px bg-stone-200"></div>
+                            {/* Color Picker Mini */}
+                            <div className="flex gap-2">
+                                <button onClick={()=>handleBatchColor(null)} className="w-8 h-8 rounded-full border border-stone-300 bg-stone-50 flex items-center justify-center"><Icon name="slash" size={14}/></button>
+                                {['#fca5a5', '#fcd34d', '#86efac'].map(c => (
+                                    <button key={c} onClick={()=>handleBatchColor(c)} className="w-8 h-8 rounded-full border border-transparent hover:scale-110 transition-transform" style={{backgroundColor: c}}/>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* BOOK SELECTOR MODAL (Keep as is) */}
+                    {showBookSelector && (
+                        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-50 flex flex-col slide-up">
+                            <div className="bg-white rounded-t-2xl flex-1 mt-10 overflow-hidden flex flex-col shadow-2xl">
+                                <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                                    <h3 className="font-serif font-bold text-lg text-stone-900">Selecionar Livro</h3>
+                                    <button onClick={() => setShowBookSelector(false)} className="p-2 bg-stone-200 rounded-full text-stone-600"><Icon name="x" /></button>
                                 </div>
+                                <div className="flex-1 overflow-y-auto p-4 custom-scroll">
+                                    <h4 className="font-bold text-stone-400 text-xs uppercase tracking-wider mb-3 sticky top-0 bg-white py-2">Antigo Testamento</h4>
+                                    <div className="grid grid-cols-3 gap-2 mb-6">
+                                        {books.slice(0, 39).map(b => (
+                                            <button 
+                                                key={b.id} 
+                                                onClick={() => {
+                                                    setBookId(b.id);
+                                                    setBookName(b.n);
+                                                    loadChapter(b.id, 1);
+                                                    setShowBookSelector(false);
+                                                }}
+                                                className={`p-3 text-sm rounded-lg border ${bookId === b.id ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold' : 'bg-stone-50 border-stone-100 text-stone-700 hover:bg-stone-100'}`}
+                                            >
+                                                {b.n}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <h4 className="font-bold text-stone-400 text-xs uppercase tracking-wider mb-3 sticky top-0 bg-white py-2">Novo Testamento</h4>
+                                    <div className="grid grid-cols-3 gap-2 pb-10">
+                                        {books.slice(39).map(b => (
+                                            <button 
+                                                key={b.id} 
+                                                onClick={() => {
+                                                    setBookId(b.id);
+                                                    setBookName(b.n);
+                                                    loadChapter(b.id, 1);
+                                                    setShowBookSelector(false);
+                                                }}
+                                                className={`p-3 text-sm rounded-lg border ${bookId === b.id ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold' : 'bg-stone-50 border-stone-100 text-stone-700 hover:bg-stone-100'}`}
+                                            >
+                                                {b.n}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {selVerse && (
+                        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-2xl animate-slide-up border-t-4 border-amber-800 max-h-[90vh] overflow-y-auto">
+                                <div className="flex justify-between mb-2">
+                                    <h3 className="font-bold text-stone-900 text-lg font-serif">{bookName} {chapter}:{selVerse.verse}</h3>
+                                    <button aria-label="Fechar" onClick={()=>setSelVerse(null)}><Icon name="x"/></button>
+                                </div>
+                                
+                                {/* TOPIC SUGGESTIONS */}
+                                <div className="mb-4">
+                                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Sugerir Tópico</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {TOPIC_SUGGESTIONS.map(s => (
+                                            <button 
+                                                key={s} 
+                                                onClick={() => {
+                                                    setTargetTopic(s);
+                                                    alert(`Tópico "${s}" selecionado para esta nota.`);
+                                                }}
+                                                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${targetTopic === s ? 'bg-amber-900 text-white border-amber-900' : 'bg-stone-100 text-stone-600 hover:bg-amber-100 border-stone-200'}`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 <p className="italic text-stone-600 text-sm mb-4 border-l-4 border-amber-500 pl-3 py-1 bg-stone-50 rounded-r">"{selVerse.text}"</p>
+                                
+                                {/* Color Selector for Highlighting */}
+                                <div className="mb-4">
+                                    <label className="text-xs font-bold text-stone-500 uppercase mb-2 block">Marcador</label>
+                                    <div className="flex gap-3 mb-2">
+                                        <button onClick={()=>handleColorUpdate(null)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${selColor === null ? 'border-stone-400 bg-stone-100' : 'border-transparent bg-stone-50'}`} title="Sem cor"><Icon name="slash" size={14} className="text-stone-400"/></button>
+                                        {Object.keys(COLOR_MEANINGS).map(c => (
+                                            <button 
+                                                key={c} 
+                                                onClick={()=>handleColorUpdate(c)} 
+                                                className={`w-8 h-8 rounded-full border-2 transition-transform active:scale-95 ${selColor === c ? 'border-stone-600 scale-110' : 'border-transparent'}`} 
+                                                style={{backgroundColor: c}}
+                                            />
+                                        ))}
+                                    </div>
+                                    {selColor && (
+                                        <p className="text-xs font-medium text-stone-600 bg-stone-100 p-2 rounded-lg fade-in">
+                                            {COLOR_MEANINGS[selColor]}
+                                        </p>
+                                    )}
+                                </div>
+
                                 <textarea className="w-full p-4 border border-stone-200 bg-white text-stone-900 rounded-lg mb-4 text-base focus:ring-2 focus:ring-amber-500 outline-none placeholder-stone-400" rows="3" placeholder="Sua anotação pessoal..." value={note} onChange={e=>setNote(e.target.value)}/>
-                                <div className="flex gap-2">
-                                    <Button onClick={saveNote} className="flex-1 py-3"><Icon name="save" size={18}/> Salvar</Button>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    <Button onClick={saveNote} className="py-3"><Icon name="save" size={18}/> Salvar</Button>
                                     <Button onClick={()=>{
                                         onNavigate('chat', `Faça exegese de ${bookName} ${chapter}:${selVerse.verse}: "${selVerse.text}"`);
-                                    }} variant="secondary" className="flex-1 py-3"><Icon name="sparkles" size={18}/> Explicar</Button>
+                                    }} variant="secondary" className="py-3"><Icon name="sparkles" size={18}/> Explicar</Button>
                                 </div>
+                                <Button onClick={handleShare} variant="ghost" className="w-full text-stone-500 border border-stone-200 mt-2"><Icon name="share-2" size={18}/> Compartilhar</Button>
                             </div>
                         </div>
                     )}
@@ -501,6 +1099,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
 
         const NotesView = ({ user }) => {
             const [notes, setNotes] = useState(DataManager.getNotes(user.username));
+            const [filter, setFilter] = useState('all'); 
             
             useEffect(() => {
                 setNotes(DataManager.getNotes(user.username));
@@ -513,25 +1112,77 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 }
             };
 
+            const handleToggleFavorite = (id) => {
+                const updated = DataManager.toggleNoteFavorite(user.username, id);
+                setNotes(updated);
+            };
+
+            const displayedNotes = useMemo(() => {
+                return filter === 'fav' ? notes.filter(n => n.favorite) : notes;
+            }, [notes, filter]);
+
             return (
                 <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                     <div className="max-w-2xl mx-auto fade-in">
-                        <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Caderno de Anotações</h2>
-                        {notes.length === 0 ? <p className="text-stone-400 italic text-center py-12">Nenhuma anotação. Leia a Bíblia para criar.</p> : 
-                            <div className="space-y-4">
-                                {notes.map(n => (
-                                    <div key={n.id} className="bg-white p-5 rounded-xl shadow-sm border border-stone-100 hover:border-amber-300 transition-all">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2 py-1 rounded font-mono">{n.ref}</span>
-                                            <button 
-                                                onClick={() => handleDelete(n.id)} 
-                                                className="text-stone-300 hover:text-red-500 p-2 -mr-2"
-                                            >
-                                                <Icon name="trash-2" size={18}/>
-                                            </button>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-serif font-bold text-stone-900">Caderno de Anotações</h2>
+                        </div>
+                        
+                        <div className="flex p-1 bg-stone-100 rounded-xl mb-6 w-full max-w-xs">
+                            <button onClick={()=>setFilter('all')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${filter==='all'?'bg-white text-stone-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}>Todas</button>
+                            <button onClick={()=>setFilter('fav')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${filter==='fav'?'bg-white text-amber-900 shadow-sm':'text-stone-500 hover:text-stone-700'}`}><Icon name="star" size={14} className={filter==='fav'?'fill-amber-900':''}/> Favoritas</button>
+                        </div>
+
+                        {displayedNotes.length === 0 ? (
+                            <div className="text-center py-16">
+                                <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
+                                    <Icon name={filter === 'fav' ? 'star' : 'notebook-pen'} size={32}/>
+                                </div>
+                                <p className="text-stone-400 italic">
+                                    {filter === 'fav' ? 'Nenhuma nota favorita encontrada.' : 'Nenhuma anotação. Leia a Bíblia para criar.'}
+                                </p>
+                            </div>
+                        ) : 
+                            <div className="space-y-4 fade-in" key={filter}>
+                                {displayedNotes.map(n => (
+                                    <div key={n.id} className="bg-white p-0 rounded-xl shadow-sm border border-stone-100 overflow-hidden hover:border-amber-300 transition-all group">
+                                        <div className="p-5">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2 py-1 rounded-md font-mono flex items-center gap-1">
+                                                        <Icon name="bookmark" size={12} className="fill-amber-900"/> {n.ref}
+                                                    </span>
+                                                    {n.color && <div className="w-3 h-3 rounded-full" style={{backgroundColor: n.color}} title="Marcador"></div>}
+                                                </div>
+                                                <div className="flex gap-1">
+                                                     <button 
+                                                        onClick={() => handleToggleFavorite(n.id)} 
+                                                        aria-label={n.favorite ? "Desfavoritar" : "Favoritar"}
+                                                        className={`p-2 rounded-full transition-colors hover:bg-stone-50 ${n.favorite ? 'text-amber-500' : 'text-stone-300 hover:text-amber-400'}`}
+                                                        title="Favoritar"
+                                                    >
+                                                        <Icon name="star" size={18} className={n.favorite ? "fill-amber-500" : ""} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDelete(n.id)} 
+                                                        aria-label="Excluir nota"
+                                                        className="text-stone-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                                        title="Excluir"
+                                                    >
+                                                        <Icon name="trash-2" size={18}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {n.note && <p className="text-stone-800 mb-4 leading-relaxed font-medium">{n.note}</p>}
+                                            
+                                            <div className="bg-stone-50 p-3 rounded-lg border-l-2 border-stone-300" style={n.color ? {borderLeftColor: n.color} : {}}>
+                                                <p className="text-sm text-stone-500 italic font-serif leading-snug">"{n.text}"</p>
+                                            </div>
                                         </div>
-                                        <p className="text-stone-800 mb-3 leading-relaxed">{n.note}</p>
-                                        <p className="text-xs text-stone-400 italic border-t border-stone-50 pt-2">"{n.text.substring(0,60)}..." • {new Date(n.date).toLocaleDateString()}</p>
+                                        <div className="bg-stone-50 px-5 py-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400 font-medium">
+                                            <span className="truncate max-w-[150px]">{n.topic ? `Estudo: ${n.topic}` : ''}</span>
+                                            <span className="flex items-center"><Icon name="calendar" size={12} className="mr-1"/> {new Date(n.date).toLocaleDateString()}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -541,25 +1192,64 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             );
         };
 
-        const SettingsView = ({ user }) => (
+        const SettingsView = ({ user, fontSize, onFontSizeChange }) => (
             <div className="h-full overflow-y-auto p-6 pb-32 custom-scroll">
                 <div className="max-w-2xl mx-auto fade-in">
                     <h2 className="text-xl font-serif font-bold text-stone-900 mb-6">Ajustes</h2>
+                    
+                    {/* Font Size Slider */}
+                    <div className="bg-white p-6 rounded-xl border border-stone-200 mb-6 shadow-sm">
+                        <h3 className="font-bold mb-4 text-stone-800 flex items-center gap-2"><Icon name="type" size={18} /> Tamanho do Texto</h3>
+                        <div className="flex items-center gap-4">
+                            <span className="text-xs font-serif text-stone-400">A</span>
+                            <input 
+                                type="range" 
+                                min="10" 
+                                max="28" 
+                                step="1" 
+                                value={fontSize} 
+                                onChange={(e) => onFontSizeChange(parseInt(e.target.value))}
+                                aria-label="Ajustar tamanho da fonte"
+                            />
+                            <span className="text-xl font-serif text-stone-900 font-bold">A</span>
+                        </div>
+                        <p className="text-center text-sm text-stone-500 mt-2">{fontSize}px</p>
+                        <div className="mt-4 p-3 bg-stone-50 rounded border border-stone-100">
+                            <p className="font-serif leading-relaxed text-stone-800" style={{ fontSize: `${fontSize}px` }}>
+                                "Lâmpada para os meus pés é tua palavra, e luz para o meu caminho."
+                            </p>
+                        </div>
+                    </div>
+
                     <div className="bg-white p-6 rounded-xl border border-stone-200 mb-6 shadow-sm">
                         <h3 className="font-bold mb-2 text-stone-800">Backup de Dados</h3>
                         <p className="text-sm text-stone-500 mb-4">Salve seus estudos e notas para usar em outro dispositivo.</p>
                         <div className="flex flex-col gap-3">
                             <Button onClick={DataManager.exportData} variant="secondary"><Icon name="download"/> Baixar Backup (JSON)</Button>
                             <div className="relative group">
-                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e=>DataManager.importData(e.target.files[0])} />
+                                <label htmlFor="file-upload" className="sr-only">Upload de backup</label>
+                                <input id="file-upload" type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e=>DataManager.importData(e.target.files[0])} />
                                 <Button variant="outline" className="w-full group-hover:bg-stone-50"><Icon name="upload"/> Restaurar Backup</Button>
                             </div>
                         </div>
                     </div>
                     <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm">
-                        <h3 className="font-bold mb-2 text-stone-800">Groq API Key</h3>
-                        <input type="password" value={localStorage.getItem('gemini_api_key')||''} disabled className="w-full p-3 bg-stone-50 border border-stone-200 text-stone-600 rounded-lg mb-3 font-mono text-sm"/>
-                        <button onClick={()=>{localStorage.removeItem('gemini_api_key'); window.location.reload();}} className="text-red-500 text-sm hover:underline font-medium p-2">Remover Chave e Sair</button>
+                        <h3 className="font-bold mb-4 text-stone-800">Groq API Key</h3>
+                        
+                        {/* Security UI: Do not show input */}
+                        <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700">
+                                <Icon name="shield-check" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-stone-800 text-sm">Chave Ativa e Segura</p>
+                                <p className="text-xs text-stone-500">Sua chave está salva localmente no dispositivo.</p>
+                            </div>
+                        </div>
+
+                        <button onClick={()=>{localStorage.removeItem('gemini_api_key'); window.location.reload();}} className="w-full border border-red-200 bg-red-50 text-red-600 rounded-lg py-3 text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                            <Icon name="trash-2" size={16}/> Remover Chave e Sair
+                        </button>
                     </div>
                 </div>
             </div>
@@ -571,6 +1261,12 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             const [streaming, setStreaming] = useState(false);
             const abortControllerRef = useRef(null);
             const botRef = useRef(null);
+            const inputRef = useRef(null);
+
+            useEffect(() => {
+                const draft = localStorage.getItem(`bs_chat_draft_${user.username}`);
+                if (draft) setInput(draft);
+            }, []);
 
             useEffect(() => {
                 if (session?.messages && !streaming) setMsgs(session.messages);
@@ -579,6 +1275,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             useEffect(() => {
                 if (promptInit && !streaming) {
                      setInput(promptInit);
+                     localStorage.setItem(`bs_chat_draft_${user.username}`, promptInit);
                 }
             }, [promptInit]);
 
@@ -591,6 +1288,12 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                     abortControllerRef.current = null;
                 }
             };
+            
+            const handleInputChange = (e) => {
+                const val = e.target.value;
+                setInput(val);
+                localStorage.setItem(`bs_chat_draft_${user.username}`, val);
+            };
 
             const send = async (txt = input) => {
                 if (!txt.trim() || streaming) return;
@@ -599,16 +1302,25 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 const newMsgs = [...msgs, userMsg];
                 setMsgs(newMsgs);
                 setInput('');
+                localStorage.removeItem(`bs_chat_draft_${user.username}`);
                 
-                if(onUpdateSession && session) {
-                    onUpdateSession({ ...session, messages: newMsgs, updatedAt: new Date().toISOString() });
+                let updatedSession = { ...session };
+                if (session && (session.title === 'Novo Estudo' || !session.title)) {
+                    const newTitle = txt.length > 30 ? txt.substring(0, 30) + '...' : txt;
+                    updatedSession.title = newTitle;
+                }
+                
+                updatedSession.messages = newMsgs;
+                updatedSession.updatedAt = new Date().toISOString();
+
+                if(onUpdateSession) {
+                    onUpdateSession(updatedSession);
                 }
 
                 setStreaming(true);
                 const abortController = new AbortController();
                 abortControllerRef.current = abortController;
 
-                // GROQ IMPLEMENTATION
                 try {
                     const sys = SYSTEM_PROMPT_TEMPLATE
                         .replace('{{USERNAME}}', user.username)
@@ -641,7 +1353,6 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         throw new Error(err.error?.message || "Erro na API Groq");
                     }
 
-                    // SSE Reader
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder("utf-8");
                     let fullText = "";
@@ -669,9 +1380,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         }
                     }
 
-                    if(onUpdateSession && session && !abortController.signal.aborted) {
+                    if(onUpdateSession && !abortController.signal.aborted) {
                         onUpdateSession({
-                            ...session,
+                            ...updatedSession, 
                             messages: [...newMsgs, {role:'model', content: fullText}],
                             updatedAt: new Date().toISOString()
                         });
@@ -709,14 +1420,22 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             <div ref={botRef}/>
                         </div>
                     </div>
-                    <div className="p-4 bg-white/80 backdrop-blur-md border-t border-stone-200 md:mb-0 mb-16 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+                    <div className="p-4 bg-white/80 backdrop-blur-md border-t border-stone-200 md:mb-16 mb-20 shadow-[0_-5px_20px_rgba(0,0,0,0.02)] pb-safe">
                         <div className="max-w-3xl mx-auto flex gap-2 items-end">
-                            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} className="flex-1 p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-900/10 focus:border-amber-800 outline-none transition-all shadow-inner text-stone-800 placeholder-stone-400" placeholder="Digite sua pergunta teológica..."/>
+                            <label htmlFor="chat-input" className="sr-only">Digite sua pergunta</label>
+                            <input 
+                                id="chat-input"
+                                ref={inputRef}
+                                value={input} 
+                                onChange={handleInputChange} 
+                                onKeyDown={e=>e.key==='Enter'&&send()} 
+                                className="flex-1 p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-900/10 focus:border-amber-800 outline-none transition-all shadow-inner text-stone-800 placeholder-stone-400 min-w-0" 
+                                placeholder="Digite sua pergunta teológica..."
+                            />
                             {streaming ? (
-                                <Button onClick={stopGeneration} variant="danger" title="Parar" className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg"><Icon name="square" size={20} fill="currentColor" /></Button>
+                                <Button onClick={stopGeneration} variant="danger" title="Parar" className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg flex-shrink-0"><Icon name="square" size={20} fill="currentColor" /></Button>
                             ) : (
-                                /* FIXED: Changed bg-stone-900 to bg-amber-900 to remove black background */
-                                <Button onClick={()=>send()} disabled={!input.trim()} className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg bg-amber-900 hover:bg-amber-800"><Icon name="send" size={20}/></Button>
+                                <Button onClick={()=>send()} disabled={!input.trim()} title="Enviar" className="h-[58px] w-[58px] rounded-xl flex items-center justify-center p-0 shadow-lg bg-amber-900 hover:bg-amber-800 flex-shrink-0"><Icon name="send" size={20}/></Button>
                             )}
                         </div>
                     </div>
@@ -732,17 +1451,27 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
             const [chatData, setChatData] = useState(null);
             const [sessions, setSessions] = useState([]);
             const [currentSession, setCurrentSession] = useState(null);
+            const [currentTopic, setCurrentTopic] = useState(null);
+            
+            // Global Settings State
+            const [fontSize, setFontSize] = useState(DataManager.getSettings().fontSize);
+
+            const handleFontSizeChange = (size) => {
+                setFontSize(size);
+                DataManager.saveSettings({ fontSize: size });
+            };
+            
+            const mainRef = useRef(null);
+            useEffect(() => {
+                if (mainRef.current) mainRef.current.scrollTop = 0;
+            }, [tab]);
 
             useEffect(() => { if(user) localStorage.setItem('bs_current_user', JSON.stringify(user)); }, [user]);
             useEffect(() => { if(user) setSessions(DataManager.getSessions(user.username)); }, [user]);
 
-            const handleTabChange = (t) => {
-                setTab(t);
-                if (t === 'chat' && !currentSession) createNewSession();
-            };
-
             const createNewSession = () => {
                 setChatData(null);
+                setCurrentTopic(null);
                 const newSess = { 
                     id: Date.now().toString(), 
                     title: 'Novo Estudo', 
@@ -755,38 +1484,47 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                 setTab('chat');
             };
 
-            const loadSession = (s) => {
+            const loadSession = useCallback((s) => {
                 setChatData(null);
                 setCurrentSession(s); 
+                setCurrentTopic(s.title);
                 setTab('chat');
-            };
+            }, []);
 
-            const updateSessionInRealTime = (updatedSession) => {
-               const newSessions = sessions.map(s => s.id === updatedSession.id ? updatedSession : s);
-               setSessions(newSessions);
+            const updateSessionInRealTime = useCallback((updatedSession) => {
+               setSessions(prev => {
+                   const newSessions = prev.map(s => s.id === updatedSession.id ? updatedSession : s);
+                   DataManager.saveSessions(user.username, newSessions);
+                   return newSessions;
+               });
                setCurrentSession(updatedSession);
-               DataManager.saveSessions(user.username, newSessions);
-            };
+            }, [user]);
 
-            const deleteSession = (id) => {
-                const left = sessions.filter(s=>s.id!==id);
-                setSessions(left);
-                DataManager.saveSessions(user.username, left);
+            const deleteSession = useCallback((id) => {
+                setSessions(prev => {
+                    const left = prev.filter(s=>s.id!==id);
+                    DataManager.saveSessions(user.username, left);
+                    return left;
+                });
                 if(currentSession?.id===id) setCurrentSession(null);
-            };
+            }, [user, currentSession]);
 
             const startDaily = () => {
-                const newSess = { id: Date.now().toString(), title: 'Devocional Diário', messages: [], updatedAt: new Date().toISOString() };
-                setSessions([newSess, ...sessions]);
+                const topic = 'Devocional Diário';
+                setCurrentTopic(topic);
+                const newSess = { id: Date.now().toString(), title: topic, messages: [], updatedAt: new Date().toISOString() };
+                setSessions(prev => [newSess, ...prev]);
                 setCurrentSession(newSess);
                 DataManager.saveSessions(user.username, [newSess, ...sessions]);
                 setChatData("Qual a leitura bíblica e devocional para hoje?");
                 setTab('chat');
             };
 
-            const startPromptChat = (prompt) => {
-                const newSess = { id: Date.now().toString(), title: 'Estudo Rápido', messages: [], updatedAt: new Date().toISOString() };
-                setSessions([newSess, ...sessions]);
+            const startPromptChat = (prompt, topicTitle) => {
+                const title = topicTitle || 'Estudo Rápido';
+                setCurrentTopic(title); 
+                const newSess = { id: Date.now().toString(), title: title, messages: [], updatedAt: new Date().toISOString() };
+                setSessions(prev => [newSess, ...prev]);
                 setCurrentSession(newSess);
                 DataManager.saveSessions(user.username, [newSess, ...sessions]);
                 setChatData(prompt);
@@ -821,7 +1559,18 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         <p className="text-sm text-stone-500 mb-6 leading-relaxed">Para conectar a IA (Llama 3), cole sua chave da Groq abaixo.</p>
                         <input className="w-full p-4 border border-stone-200 bg-white text-stone-900 rounded-xl mb-4 focus:ring-2 focus:ring-amber-800 outline-none transition-all font-mono text-sm placeholder-stone-400" type="password" placeholder="Cole aqui (gsk_...)" onChange={e => setTempKey(e.target.value)} />
                         <Button className="w-full py-4 text-lg shadow-xl" onClick={handleSaveKey}>Conectar</Button>
-                        <a href="https://console.groq.com/keys" target="_blank" className="text-xs text-amber-800 mt-6 block hover:underline font-medium">Obter chave grátis (Groq)</a>
+                        <a href="https://console.groq.com/keys" target="_blank" className="text-xs text-amber-800 mt-6 block hover:underline font-medium mb-4">Obter chave grátis (Groq)</a>
+                        
+                        <div className="text-left bg-stone-50 p-4 rounded-xl border border-stone-200 text-xs text-stone-600 leading-relaxed">
+                            <p className="font-bold text-stone-800 mb-2">Tutorial Rápido:</p>
+                            <ol className="list-decimal pl-4 space-y-1">
+                                <li>Acesse o site da Groq no link acima.</li>
+                                <li>Faça login (Google/GitHub/Email).</li>
+                                <li>No menu, toque em <strong>API Keys</strong>.</li>
+                                <li>Toque em <strong>Create API Key</strong>.</li>
+                                <li>Copie o código <code>gsk_...</code> e cole aqui.</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             );
@@ -834,7 +1583,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                              <div className="w-8 h-8 bg-amber-900 text-white rounded-lg flex items-center justify-center"><Icon name="feather" size={16}/></div>
                              <span className="font-serif font-bold text-lg text-stone-900">BiblioScholar</span>
                          </div>
-                         <button onClick={handleLogout} className="text-stone-400 hover:text-red-500 p-2"><Icon name="log-out" size={20}/></button>
+                         <button onClick={handleLogout} aria-label="Sair" className="text-stone-400 hover:text-red-500 p-2"><Icon name="log-out" size={20}/></button>
                     </header>
 
                     {/* Sidebar Desktop */}
@@ -852,7 +1601,6 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                                 {id:'notes', l:'Anotações', i:'notebook-pen'},
                                 {id:'settings', l:'Ajustes', i:'settings'}
                             ].map(i => (
-                                /* FIXED: Changed bg-stone-900 to bg-amber-100 text-amber-900 for active state */
                                 <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`w-full flex gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${tab===i.id?'bg-amber-100 text-amber-900 shadow-md':'text-stone-600 hover:bg-stone-50 hover:text-stone-900'}`}>
                                     <Icon name={i.i} size={18}/> {i.l}
                                 </button>
@@ -872,9 +1620,9 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                         </div>
                     </aside>
 
-                    <main className="flex-1 h-full relative overflow-hidden bg-stone-50 pt-16 md:pt-0">
-                        {tab === 'home' && <HomeView user={user} onNavigate={(target, data) => target==='daily'?startDaily():startPromptChat(data || '')} />}
-                        {tab === 'bible' && <BibleView user={user} onNavigate={(t,d) => startPromptChat(d)} />}
+                    <main ref={mainRef} className="flex-1 h-full relative overflow-hidden bg-stone-50 pt-16 md:pt-0 transition-opacity duration-200">
+                        {tab === 'home' && <HomeView user={user} onNavigate={(target, data, topic) => target==='daily'?startDaily():startPromptChat(data || '', topic)} />}
+                        {tab === 'bible' && <BibleView user={user} fontSize={fontSize} currentTopic={currentTopic} onNavigate={(t,d) => startPromptChat(d)} />}
                         
                         {tab === 'chat' && currentSession && 
                             <ChatView 
@@ -887,7 +1635,7 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             />}
                         {tab === 'history' && <HistoryView sessions={sessions} onSelectSession={loadSession} onDeleteSession={deleteSession} />}
                         {tab === 'notes' && <NotesView user={user} />}
-                        {tab === 'settings' && <SettingsView user={user} />}
+                        {tab === 'settings' && <SettingsView user={user} fontSize={fontSize} onFontSizeChange={handleFontSizeChange} />}
                     </main>
 
                     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-stone-200 flex justify-around p-2 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
@@ -899,7 +1647,6 @@ Você é um erudito em Estudos Bíblicos e um Mentor Espiritual. Seu objetivo é
                             {id:'notes', i:'notebook-pen', l:'Notas'},
                             {id:'settings', i:'settings', l:'Ajustes'}
                         ].map(i => (
-                            /* FIXED: Reduced icon size to 20 and padding to p-1 for native mobile look */
                             <button key={i.id} onClick={()=>i.id==='chat'?createNewSession():setTab(i.id)} className={`flex flex-col items-center p-1 rounded-xl transition-all ${tab===i.id?'text-amber-900 bg-amber-50':'text-stone-400 active:scale-95'}`}>
                                 <Icon name={i.i} size={20}/>
                                 <span className="text-[10px] mt-1 font-medium">{i.l}</span>
